@@ -1,0 +1,40 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f1f5f9;
+  color: #172033;
+}
+
+.connection-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.connection-card {
+  width: 100%;
+  max-width: 560px;
+  padding: 32px;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 8%);
+}
+
+.connection-card h1 {
+  margin-top: 0;
+  color: #1d4ed8;
+}
+
+.connection-card h2 {
+  color: #15803d;
+}
+
+.connection-card p {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
