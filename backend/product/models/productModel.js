@@ -1,4 +1,3 @@
-
 import db from "../../config/db.js";
 
 export async function getAllProducts({ search = "", categoryId = "" } = {}) {
@@ -20,7 +19,7 @@ export async function getAllProducts({ search = "", categoryId = "" } = {}) {
       p.updated_at
     FROM products p
     INNER JOIN categories c ON c.id = p.category_id
-    WHERE 1 = 1
+    WHERE p.is_active = TRUE
   `;
 
   const params = [];

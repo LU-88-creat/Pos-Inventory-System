@@ -9,12 +9,14 @@ import {
   changeProductStatus,
   removeProduct,
   listCategories,
+  createCategory,
 } from "../controllers/productController.js";
 
 const router = express.Router();
 
 // Categories
 router.get("/categories", listCategories);
+router.post("/categories", createCategory);
 
 // Read products
 router.get("/", listProducts);

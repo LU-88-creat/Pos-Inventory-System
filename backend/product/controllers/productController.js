@@ -8,7 +8,10 @@ import {
   deleteProduct,
 } from "../models/productModel.js";
 
-import { getAllCategories } from "../models/categoryModel.js";
+import {
+  createCategory as insertCategory,
+  getAllCategories,
+} from "../models/categoryModel.js";
 
 const allowedUnits = [
   "piece",
@@ -305,6 +308,37 @@ export async function listCategories(req, res) {
     return handleDatabaseError(error, res);
   }
 }
+
+export async function createCategory(req, res) {
+  const categoryName = req.body.category_name;
+
+  if (typeof categoryName !== "string" || !categoryName.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: "Category name is required.",
+    });
+  }
+
+  try {
+    const category = await insertCategory(categoryName.trim());
+
+    return res.status(201).json({
+      success: true,
+      message: "Category created successfully.",
+      data: category,
+    });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        success: false,
+        message: "A category with this name already exists.",
+      });
+    }
+
+    return handleDatabaseError(error, res);
+  }
+}
+
 export async function removeProduct(req, res) {
   try {
     const id = Number(req.params.id);
