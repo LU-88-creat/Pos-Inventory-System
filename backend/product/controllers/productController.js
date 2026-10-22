@@ -97,6 +97,20 @@ function validateProduct(data) {
     }
   }
 
+  for (const field of ["tax_rate", "discount_rate"]) {
+    const value = data[field] ?? 0;
+
+    if (
+      typeof value === "boolean" ||
+      value === "" ||
+      !Number.isFinite(Number(value)) ||
+      Number(value) < 0 ||
+      Number(value) > 100
+    ) {
+      return `${field} must be a valid percentage between 0 and 100.`;
+    }
+  }
+
   return null;
 }
 
@@ -111,6 +125,8 @@ function normalizeProduct(data) {
     selling_price: Number(data.selling_price),
     stock_quantity: Number(data.stock_quantity),
     reorder_level: Number(data.reorder_level),
+    tax_rate: Number(data.tax_rate ?? 0),
+    discount_rate: Number(data.discount_rate ?? 0),
   };
 }
 

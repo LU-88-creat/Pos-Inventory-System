@@ -6,6 +6,8 @@ import {
   getSaleById,
   getAllSales,
 } from "./salesModel.js";
+import { createStockMovement } from "../stock/stockModel.js";
+
 
 export async function listSales(req, res) {
   try {
@@ -63,8 +65,6 @@ export async function addSale(req, res) {
   const {
     receipt_number,
     subtotal,
-    discount_amount = 0,
-    tax_amount = 0,
     total_amount,
     payment_method,
     customer_id = null,
@@ -89,9 +89,6 @@ export async function addSale(req, res) {
     !["cash", "mpesa"].includes(payment_method) ||
     ![subtotal, total_amount].every(
       (value) => value !== undefined && Number.isFinite(Number(value)) && Number(value) >= 0
-    ) ||
-    ![discount_amount, tax_amount].every(
-      (value) => Number.isFinite(Number(value)) && Number(value) >= 0
     )
   ) {
     return res.status(400).json({
@@ -132,11 +129,14 @@ export async function addSale(req, res) {
     transactionStarted = true;
 
     let calculatedSubtotal = 0;
+    let calculatedDiscount = 0;
+    let calculatedTax = 0;
     const preparedItems = [];
 
     for (const item of items) {
       const [products] = await connection.execute(
-        `SELECT id, product_name, selling_price, stock_quantity
+        `SELECT id, product_name, selling_price, stock_quantity,
+                tax_rate, discount_rate
          FROM products
          WHERE id = ? AND is_active = TRUE
          FOR UPDATE`,
@@ -150,25 +150,22 @@ export async function addSale(req, res) {
       const product = products[0];
       const quantity = Number(item.quantity);
       const unitPrice = Number(product.selling_price);
-      const itemDiscount = Number(item.discount_amount ?? 0);
-
-      if (!Number.isFinite(itemDiscount) || itemDiscount < 0) {
-        throw new Error("Item discounts must be valid non-negative amounts.");
-      }
+      const discountRate = Number(product.discount_rate ?? 0);
+      const taxRate = Number(product.tax_rate ?? 0);
 
       if (quantity > Number(product.stock_quantity)) {
         throw new Error(`Insufficient stock for ${product.product_name}.`);
       }
 
-      const gross = quantity * unitPrice;
-
-      if (itemDiscount > gross) {
-        throw new Error(`Discount exceeds the item amount for ${product.product_name}.`);
-      }
-
-      const lineTotal = Number((gross - itemDiscount).toFixed(2));
+      const gross = Number((quantity * unitPrice).toFixed(2));
+      const itemDiscount = Number((gross * discountRate / 100).toFixed(2));
+      const taxableAmount = gross - itemDiscount;
+      const itemTax = Number((taxableAmount * taxRate / 100).toFixed(2));
+      const lineTotal = Number((taxableAmount + itemTax).toFixed(2));
 
       calculatedSubtotal += gross;
+      calculatedDiscount += itemDiscount;
+      calculatedTax += itemTax;
 
       preparedItems.push({
         product_id: product.id,
@@ -176,14 +173,16 @@ export async function addSale(req, res) {
         quantity,
         unit_price: unitPrice,
         discount_amount: itemDiscount,
+        discount_rate: discountRate,
+        tax_rate: taxRate,
+        tax_amount: itemTax,
         line_total: lineTotal,
       });
     }
 
     calculatedSubtotal = Number(calculatedSubtotal.toFixed(2));
-
-    const totalDiscount = Number(discount_amount);
-    const tax = Number(tax_amount);
+    const totalDiscount = Number(calculatedDiscount.toFixed(2));
+    const tax = Number(calculatedTax.toFixed(2));
     const calculatedTotal = Number(
       (calculatedSubtotal - totalDiscount + tax).toFixed(2)
     );
@@ -336,26 +335,67 @@ export async function completeCashSale(req, res) {
       throw error;
     }
 
-    // Deduct stock safely. If any item lacks stock,
-    // the whole transaction will be rolled back.
+
+    // Deduct stock and record each movement in the same transaction.
     for (const item of items) {
       const quantity = Number(item.quantity);
 
-      const [result] = await connection.execute(
-        `UPDATE products
-         SET stock_quantity = stock_quantity - ?
-         WHERE id = ?
-           AND stock_quantity >= ?`,
-        [quantity, item.product_id, quantity]
+      const [products] = await connection.execute(
+        `SELECT id, product_name, stock_quantity
+         FROM products
+         WHERE id = ? AND is_active = TRUE
+         FOR UPDATE`,
+        [item.product_id]
       );
 
-      if (result.affectedRows !== 1) {
+      if (products.length === 0) {
         const error = new Error(
-          `Insufficient stock for product ID ${item.product_id}.`
+          `Product ID ${item.product_id} was not found or is inactive.`
         );
         error.statusCode = 409;
         throw error;
       }
+
+      const product = products[0];
+      const previousStock = Number(product.stock_quantity);
+
+      if (previousStock < quantity) {
+        const error = new Error(
+          `Insufficient stock for ${product.product_name}.`
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const newStock = Number(
+        (previousStock - quantity).toFixed(3)
+      );
+
+      const [result] = await connection.execute(
+        `UPDATE products
+         SET stock_quantity = ?
+         WHERE id = ? AND stock_quantity >= ?`,
+        [newStock, product.id, quantity]
+      );
+
+      if (result.affectedRows !== 1) {
+        const error = new Error(
+          `Stock update failed for ${product.product_name}.`
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      await createStockMovement(connection, {
+        product_id: product.id,
+        movement_type: "sale",
+        quantity,
+        previous_stock: previousStock,
+        new_stock: newStock,
+        reference_type: "sale",
+        reference_id: id,
+        notes: `Stock deducted for receipt ${id}`,
+      });
     }
 
     await connection.execute(
@@ -399,7 +439,6 @@ export async function completeCashSale(req, res) {
     }
   }
 }
-
 
 export async function cancelSale(req, res) {
   const id = Number(req.params.id);

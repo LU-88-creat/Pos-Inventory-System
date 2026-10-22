@@ -12,6 +12,8 @@ export async function getAllProducts({ search = "", categoryId = "" } = {}) {
       p.unit_of_measure,
       p.cost_price,
       p.selling_price,
+      p.tax_rate,
+      p.discount_rate,
       p.stock_quantity,
       p.reorder_level,
       p.is_active,
@@ -69,6 +71,8 @@ export async function createProduct(product) {
     unit_of_measure,
     cost_price,
     selling_price,
+    tax_rate,
+    discount_rate,
     stock_quantity,
     reorder_level,
   } = product;
@@ -77,8 +81,8 @@ export async function createProduct(product) {
     `INSERT INTO products (
       product_name, sku, barcode, category_id,
       unit_of_measure, cost_price, selling_price,
-      stock_quantity, reorder_level
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      tax_rate, discount_rate, stock_quantity, reorder_level
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       product_name,
       sku,
@@ -87,6 +91,8 @@ export async function createProduct(product) {
       unit_of_measure,
       cost_price,
       selling_price,
+      tax_rate,
+      discount_rate,
       stock_quantity,
       reorder_level,
     ]
@@ -104,6 +110,8 @@ export async function updateProduct(id, product) {
     unit_of_measure,
     cost_price,
     selling_price,
+    tax_rate,
+    discount_rate,
     stock_quantity,
     reorder_level,
   } = product;
@@ -117,6 +125,8 @@ export async function updateProduct(id, product) {
       unit_of_measure = ?,
       cost_price = ?,
       selling_price = ?,
+      tax_rate = ?,
+      discount_rate = ?,
       stock_quantity = ?,
       reorder_level = ?
      WHERE id = ?`,
@@ -128,6 +138,8 @@ export async function updateProduct(id, product) {
       unit_of_measure,
       cost_price,
       selling_price,
+      tax_rate,
+      discount_rate,
       stock_quantity,
       reorder_level,
       id,

@@ -17,6 +17,8 @@ const emptyForm = {
   selling_price: "",
   stock_quantity: "0",
   reorder_level: "5",
+  tax_rate: "",
+  discount_rate: "",
 };
 
 const units = [
@@ -148,6 +150,8 @@ export default function Product() {
       selling_price: String(product.selling_price ?? ""),
       stock_quantity: String(product.stock_quantity ?? 0),
       reorder_level: String(product.reorder_level ?? 5),
+      tax_rate: String(product.tax_rate ?? 0),
+      discount_rate: String(product.discount_rate ?? 0),
     });
     setError("");
     setNotice("");
@@ -175,6 +179,8 @@ export default function Product() {
       selling_price: Number(form.selling_price),
       stock_quantity: Number(form.stock_quantity),
       reorder_level: Number(form.reorder_level),
+      tax_rate: Number(form.tax_rate || 0),
+      discount_rate: Number(form.discount_rate || 0),
     };
 
     try {
@@ -225,13 +231,15 @@ export default function Product() {
     "mt-1.5 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100";
 
   return (
-    <section className="min-w-0 space-y-6">
+    <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-700">
-            Inventory management
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Package size={17} />
+            <span>Product Management</span>
+          </div>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             Products
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -239,20 +247,20 @@ export default function Product() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-nowrap">
           <button
             onClick={() => {
               setCategoryName("");
               setCategoryError("");
               setCategoryModal(true);
             }}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <Tags size={18} /> Add category
           </button>
           <button
             onClick={openAdd}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
           >
             <Plus size={18} /> Add product
           </button>
@@ -260,7 +268,7 @@ export default function Product() {
       </div>
 
       {error && (
-        <div role="alert" className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <AlertCircle size={19} className="mt-0.5 shrink-0" />
           <p className="min-w-0 flex-1 break-words">{error}</p>
           <button onClick={() => setError("")} aria-label="Dismiss error">
@@ -270,7 +278,7 @@ export default function Product() {
       )}
 
       {notice && (
-        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+        <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           <span>{notice}</span>
           <button onClick={() => setNotice("")} aria-label="Dismiss message">
             <X size={18} />
@@ -278,34 +286,38 @@ export default function Product() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:max-w-2xl">
-        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-700">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Active products</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">
+                {loading ? "—" : products.length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
             <Package size={23} />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500">Active products</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">
-              {loading ? "—" : products.length}
-            </p>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Products at reorder level</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">
+                {loading ? "—" : lowStock}
+              </p>
+            </div>
+            <div className="rounded-xl bg-amber-50 p-3 text-amber-700">
             <Boxes size={23} />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500">Products at reorder level</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">
-              {loading ? "—" : lowStock}
-            </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="relative min-w-0 flex-1">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -313,7 +325,7 @@ export default function Product() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search product, SKU or barcode..."
               aria-label="Search products"
-              className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
             />
           </div>
 
@@ -322,7 +334,7 @@ export default function Product() {
               value={categoryId}
               onChange={(event) => setCategoryId(event.target.value)}
               aria-label="Filter by category"
-              className="min-h-10 min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm sm:min-w-44"
+              className="min-h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm sm:min-w-44"
             >
               <option value="">All categories</option>
               {categories.map((c) => (
@@ -335,14 +347,14 @@ export default function Product() {
                 loadCategories();
                 loadProducts();
               }}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               <RefreshCw size={16} /> Refresh
             </button>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <h2 className="font-semibold text-slate-900">Product inventory</h2>
           <span className="text-xs text-slate-500">
             {products.length} product{products.length === 1 ? "" : "s"}
@@ -350,25 +362,25 @@ export default function Product() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[950px] text-left text-sm">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+          <table className="w-full min-w-[1100px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500">
               <tr>
-                {["Product", "SKU / Barcode", "Category", "Cost", "Selling price", "Stock", "Status", "Actions"].map((label) => (
-                  <th key={label} className="whitespace-nowrap px-4 py-3 font-semibold">{label}</th>
+                {["Product", "SKU / Barcode", "Category", "Cost", "Selling price", "Tax", "Discount", "Stock", "Status", "Actions"].map((label) => (
+                  <th key={label} className="whitespace-nowrap px-5 py-3 font-semibold">{label}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-14 text-center text-slate-500">
+                  <td colSpan={10} className="px-5 py-14 text-center text-slate-500">
                     <LoaderCircle className="mx-auto mb-2 animate-spin" />
                     Loading products...
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-14 text-center">
+                  <td colSpan={10} className="px-5 py-14 text-center">
                     <Package size={30} className="mx-auto mb-2 text-slate-300" />
                     <p className="font-medium text-slate-700">No products found</p>
                     <p className="mt-1 text-xs text-slate-500">
@@ -381,29 +393,31 @@ export default function Product() {
 
                 return (
                   <tr key={p.id} className="transition hover:bg-orange-50/30">
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <div className="font-semibold text-slate-800">{p.product_name}</div>
                       <div className="mt-1 text-xs text-slate-400">ID: {p.id}</div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <div className="font-medium text-slate-700">{p.sku}</div>
                       <div className="mt-1 text-xs text-slate-400">{p.barcode || "No barcode"}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{p.category_name}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">{money(p.cost_price)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">{money(p.selling_price)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4 text-slate-600">{p.category_name}</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-slate-600">{money(p.cost_price)}</td>
+                    <td className="whitespace-nowrap px-5 py-4 font-semibold text-slate-800">{money(p.selling_price)}</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-slate-600">{Number(p.tax_rate ?? 0)}%</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-slate-600">{Number(p.discount_rate ?? 0)}%</td>
+                    <td className="px-5 py-4">
                       <span className={isLow ? "font-semibold text-red-600" : "font-medium text-slate-700"}>
                         {Number(p.stock_quantity).toLocaleString("en-KE")} {p.unit_of_measure}
                       </span>
                       {isLow && <p className="mt-1 text-[11px] text-red-500">Reorder level reached</p>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                         Active
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openEdit(p)}
@@ -430,7 +444,7 @@ export default function Product() {
           </table>
         </div>
 
-        <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+        <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
           Stock and prices are loaded from your database. Table can scroll horizontally on smaller screens.
         </div>
       </div>
@@ -497,6 +511,36 @@ export default function Product() {
                   <select className={inputClass} name="unit_of_measure" value={form.unit_of_measure} onChange={handleChange} required>
                     {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                   </select>
+                </label>
+
+                <label className="text-sm font-medium text-slate-700">
+                  Tax (%)
+                  <input
+                    className={inputClass}
+                    type="number"
+                    name="tax_rate"
+                    value={form.tax_rate}
+                    onChange={handleChange}
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="e.g. 16"
+                  />
+                </label>
+
+                <label className="text-sm font-medium text-slate-700">
+                  Discount (%)
+                  <input
+                    className={inputClass}
+                    type="number"
+                    name="discount_rate"
+                    value={form.discount_rate}
+                    onChange={handleChange}
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="e.g. 10"
+                  />
                 </label>
 
                 {[
@@ -626,6 +670,7 @@ export default function Product() {
           </div>
         </div>
       )}
-    </section>
+      </div>
+    </div>
   );
 }

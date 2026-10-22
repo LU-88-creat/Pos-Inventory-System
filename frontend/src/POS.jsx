@@ -25,6 +25,26 @@ const formatKES = (amount) =>
     maximumFractionDigits: 2,
   }).format(Number(amount) || 0);
 
+function getLineAmounts(item) {
+  const gross = Number(
+    (Number(item.selling_price) * Number(item.quantity)).toFixed(2)
+  );
+  const discountRate = Number(item.discount_rate ?? 0);
+  const taxRate = Number(item.tax_rate ?? 0);
+  const discountAmount = Number((gross * discountRate / 100).toFixed(2));
+  const taxableAmount = gross - discountAmount;
+  const taxAmount = Number((taxableAmount * taxRate / 100).toFixed(2));
+
+  return {
+    gross,
+    discountRate,
+    discountAmount,
+    taxRate,
+    taxAmount,
+    lineTotal: Number((taxableAmount + taxAmount).toFixed(2)),
+  };
+}
+
 async function readResponse(response) {
   const text = await response.text();
   let payload;
@@ -177,6 +197,8 @@ export default function POS() {
           product_name: product.product_name,
           sku: product.sku,
           selling_price: Number(product.selling_price),
+          tax_rate: Number(product.tax_rate ?? 0),
+          discount_rate: Number(product.discount_rate ?? 0),
           stock_quantity: Number(product.stock_quantity),
           quantity: 1,
         },
@@ -208,10 +230,21 @@ export default function POS() {
     setError("");
   }
 
-  const subtotal = useMemo(
-    () => cart.reduce((total, item) => total + item.selling_price * item.quantity, 0),
+  const cartTotals = useMemo(
+    () => cart.reduce((totals, item) => {
+      const line = getLineAmounts(item);
+
+      totals.subtotal += line.gross;
+      totals.discount += line.discountAmount;
+      totals.tax += line.taxAmount;
+      return totals;
+    }, { subtotal: 0, discount: 0, tax: 0 }),
     [cart]
   );
+  const subtotal = Number(cartTotals.subtotal.toFixed(2));
+  const discountAmount = Number(cartTotals.discount.toFixed(2));
+  const taxAmount = Number(cartTotals.tax.toFixed(2));
+  const total = Number((subtotal - discountAmount + taxAmount).toFixed(2));
 
   async function completeCashSale(saleId) {
     const response = await fetch(`${SALES_API}/${saleId}/complete-cash`, {
@@ -240,22 +273,19 @@ export default function POS() {
       // retry completion for that same sale instead of creating a duplicate.
       if (!saleId) {
         const receiptNumber = `POS-${Date.now()}`;
-        const amount = Number(subtotal.toFixed(2));
-
         const createResponse = await fetch(SALES_API, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             receipt_number: receiptNumber,
-            subtotal: amount,
-            discount_amount: 0,
-            tax_amount: 0,
-            total_amount: amount,
+            subtotal,
+            discount_amount: discountAmount,
+            tax_amount: taxAmount,
+            total_amount: total,
             payment_method: "cash",
             items: cart.map((item) => ({
               product_id: item.id,
               quantity: item.quantity,
-              discount_amount: 0,
             })),
           }),
         });
@@ -295,20 +325,27 @@ export default function POS() {
       const fallbackReceipt = {
         id: saleId,
         receipt_number: `POS-${saleId}`,
-        total_amount: Number(subtotal.toFixed(2)),
-        subtotal: Number(subtotal.toFixed(2)),
-        discount_amount: 0,
-        tax_amount: 0,
+        total_amount: total,
+        subtotal,
+        discount_amount: discountAmount,
+        tax_amount: taxAmount,
         payment_method: "cash",
         payment_status: "completed",
         created_at: new Date().toISOString(),
-        items: cart.map((item) => ({
-          product_id: item.id,
-          product_name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.selling_price,
-          line_total: Number((item.selling_price * item.quantity).toFixed(2)),
-        })),
+        items: cart.map((item) => {
+          const line = getLineAmounts(item);
+          return {
+            product_id: item.id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price: item.selling_price,
+            tax_rate: item.tax_rate,
+            discount_rate: item.discount_rate,
+            discount_amount: line.discountAmount,
+            tax_amount: line.taxAmount,
+            line_total: line.lineTotal,
+          };
+        }),
       };
 
       setCompletedReceipt(fallbackReceipt);
@@ -434,11 +471,18 @@ export default function POS() {
                   const quantity = Number(item.quantity ?? 0);
                   const unitPrice = Number(item.unit_price ?? item.selling_price ?? 0);
                   const lineTotal = Number(item.line_total ?? (quantity * unitPrice));
+                  const discountRate = Number(item.discount_rate ?? 0);
+                  const discount = Number(item.discount_amount ?? 0);
+                  const taxRate = Number(item.tax_rate ?? 0);
+                  const tax = Number(item.tax_amount ?? 0);
                   return (
                     <div key={`${item.product_id ?? item.id ?? index}-${index}`} className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 py-3 text-sm">
                       <div className="min-w-0">
                         <p className="break-words font-semibold text-slate-800">{item.product_name ?? item.name ?? `Product ${item.product_id ?? ""}`}</p>
                         <p className="mt-1 text-xs text-slate-500">{formatKES(unitPrice)} each</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Discount ({discountRate}%): -{formatKES(discount)} · Tax ({taxRate}%): {formatKES(tax)}
+                        </p>
                       </div>
                       <span className="text-right">{quantity}</span>
                       <span className="text-right font-semibold">{formatKES(lineTotal)}</span>
@@ -450,8 +494,8 @@ export default function POS() {
 
             <div className="ml-auto max-w-sm space-y-2 border-t border-dashed border-slate-300 pt-4 text-sm">
               <div className="flex justify-between gap-4"><span className="text-slate-500">Subtotal</span><span>{formatKES(completedReceipt.subtotal ?? receiptTotal)}</span></div>
-              {Number(completedReceipt.discount_amount ?? 0) > 0 && <div className="flex justify-between gap-4"><span className="text-slate-500">Discount</span><span>-{formatKES(completedReceipt.discount_amount)}</span></div>}
-              {Number(completedReceipt.tax_amount ?? 0) > 0 && <div className="flex justify-between gap-4"><span className="text-slate-500">Tax</span><span>{formatKES(completedReceipt.tax_amount)}</span></div>}
+              <div className="flex justify-between gap-4"><span className="text-slate-500">Discount</span><span>-{formatKES(completedReceipt.discount_amount)}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-slate-500">Tax</span><span>{formatKES(completedReceipt.tax_amount)}</span></div>
               <div className="flex justify-between gap-4 border-t border-slate-200 pt-3 text-lg font-extrabold text-slate-900"><span>Total paid</span><span>{formatKES(receiptTotal)}</span></div>
             </div>
 
@@ -567,31 +611,38 @@ export default function POS() {
               </div>
             ) : (
               <div className="max-h-[420px] space-y-4 overflow-y-auto p-4 sm:p-5">
-                {cart.map((item) => (
-                  <div key={item.id} className="border-b border-slate-100 pb-4 last:border-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="break-words text-sm font-semibold text-slate-900">{item.product_name}</p>
-                        <p className="mt-1 text-xs text-slate-500">{formatKES(item.selling_price)} each</p>
-                      </div>
-                      <button type="button" onClick={() => removeFromCart(item.id)} aria-label={`Remove ${item.product_name}`} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => changeQuantity(item.id, -1)} aria-label={`Decrease ${item.product_name} quantity`} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50">
-                          <Minus size={14} />
-                        </button>
-                        <span className="min-w-6 text-center text-sm font-semibold">{item.quantity}</span>
-                        <button type="button" onClick={() => changeQuantity(item.id, 1)} aria-label={`Increase ${item.product_name} quantity`} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50">
-                          <Plus size={14} />
+                {cart.map((item) => {
+                  const line = getLineAmounts(item);
+
+                  return (
+                    <div key={item.id} className="border-b border-slate-100 pb-4 last:border-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-semibold text-slate-900">{item.product_name}</p>
+                          <p className="mt-1 text-xs text-slate-500">{formatKES(item.selling_price)} each</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Discount {line.discountRate}% (-{formatKES(line.discountAmount)}) · Tax {line.taxRate}% (+{formatKES(line.taxAmount)})
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => removeFromCart(item.id)} aria-label={`Remove ${item.product_name}`} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600">
+                          <Trash2 size={16} />
                         </button>
                       </div>
-                      <p className="text-sm font-semibold text-slate-900">{formatKES(item.selling_price * item.quantity)}</p>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => changeQuantity(item.id, -1)} aria-label={`Decrease ${item.product_name} quantity`} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50">
+                            <Minus size={14} />
+                          </button>
+                          <span className="min-w-6 text-center text-sm font-semibold">{item.quantity}</span>
+                          <button type="button" onClick={() => changeQuantity(item.id, 1)} aria-label={`Increase ${item.product_name} quantity`} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50">
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900">{formatKES(line.lineTotal)}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -599,8 +650,14 @@ export default function POS() {
               <div className="flex items-center justify-between text-sm text-slate-600">
                 <span>Subtotal</span><span>{formatKES(subtotal)}</span>
               </div>
+              <div className="flex items-center justify-between text-sm text-slate-600">
+                <span>Discount</span><span>-{formatKES(discountAmount)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-slate-600">
+                <span>Tax</span><span>{formatKES(taxAmount)}</span>
+              </div>
               <div className="flex items-center justify-between text-lg font-bold text-slate-900">
-                <span>Total</span><span>{formatKES(subtotal)}</span>
+                <span>Total</span><span>{formatKES(total)}</span>
               </div>
               <button
                 type="button"
@@ -639,9 +696,20 @@ export default function POS() {
               <div className="flex items-center justify-between text-sm text-slate-600">
                 <span>{cart.reduce((sum, item) => sum + item.quantity, 0)} item units</span><span>Payment: Cash</span>
               </div>
+              <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 text-sm">
+                <div className="flex justify-between gap-3 text-slate-600">
+                  <span>Subtotal</span><span>{formatKES(subtotal)}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-slate-600">
+                  <span>Discount</span><span>-{formatKES(discountAmount)}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-slate-600">
+                  <span>Tax</span><span>{formatKES(taxAmount)}</span>
+                </div>
+              </div>
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-900">Amount to collect</span>
-                <span className="text-xl font-bold text-slate-900">{formatKES(subtotal)}</span>
+                <span className="text-xl font-bold text-slate-900">{formatKES(total)}</span>
               </div>
             </div>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

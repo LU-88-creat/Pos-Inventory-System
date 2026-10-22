@@ -55,6 +55,9 @@ export async function addSaleItem(connection, item) {
     quantity,
     unit_price,
     discount_amount = 0,
+    discount_rate = 0,
+    tax_rate = 0,
+    tax_amount = 0,
     line_total,
   } = item;
 
@@ -66,9 +69,12 @@ export async function addSaleItem(connection, item) {
       quantity,
       unit_price,
       discount_amount,
+      discount_rate,
+      tax_rate,
+      tax_amount,
       line_total
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const [result] = await connection.execute(sql, [
@@ -78,6 +84,9 @@ export async function addSaleItem(connection, item) {
     quantity,
     unit_price,
     discount_amount,
+    discount_rate,
+    tax_rate,
+    tax_amount,
     line_total,
   ]);
 

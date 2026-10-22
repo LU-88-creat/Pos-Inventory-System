@@ -22,6 +22,8 @@ import Product from "./Product";
 import Customer from "./Customer";
 import POS from "./POS";
 import Sales from "./Sales";
+import StockManagement from "./StockManagement";
+import Suppliers from "./Suppliers";
 
 
 const modules = [
@@ -30,8 +32,8 @@ const modules = [
   { label: "Sales", icon: ReceiptText, active: true },
   { label: "Customers", icon: Users, active: true },
   { label: "Products", icon: Package, active: true },
-  { label: "Stock Management", icon: Boxes },
-  { label: "Suppliers", icon: Truck },
+  { label: "Stock Management", icon: Boxes, active: true },
+  { label: "Suppliers", icon: Truck, active: true },
   { label: "Purchases", icon: ClipboardList },
 ];
 
@@ -197,6 +199,8 @@ export default function Dashboard() {
           {activeModule === "Customers" && <Customer />}
           {activeModule === "Point of Sale" && <POS />}
           {activeModule === "Sales" && <Sales />}
+          {activeModule === "Stock Management" && <StockManagement />}
+          {activeModule === "Suppliers" && <Suppliers />}
         </main>
 
         <footer className="flex flex-col gap-1 border-t border-slate-200 bg-white px-4 py-4 text-[10px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
