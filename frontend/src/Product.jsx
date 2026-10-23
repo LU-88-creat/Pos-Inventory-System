@@ -228,7 +228,7 @@ export default function Product() {
   ).length;
 
   const inputClass =
-    "mt-1.5 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100";
+    "mt-1.5 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100";
 
   return (
     <div className="min-w-0 p-4 sm:p-6 lg:p-8">
@@ -260,7 +260,7 @@ export default function Product() {
           </button>
           <button
             onClick={openAdd}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
           >
             <Plus size={18} /> Add product
           </button>
@@ -295,7 +295,7 @@ export default function Product() {
                 {loading ? "—" : products.length}
               </p>
             </div>
-            <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
+            <div className="rounded-xl bg-green-50 p-3 text-green-600">
             <Package size={23} />
             </div>
           </div>
@@ -325,7 +325,7 @@ export default function Product() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search product, SKU or barcode..."
               aria-label="Search products"
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100"
             />
           </div>
 
@@ -392,7 +392,7 @@ export default function Product() {
                 const isLow = Number(p.stock_quantity) <= Number(p.reorder_level);
 
                 return (
-                  <tr key={p.id} className="transition hover:bg-orange-50/30">
+                  <tr key={p.id} className="transition hover:bg-green-50/30">
                     <td className="px-5 py-4">
                       <div className="font-semibold text-slate-800">{p.product_name}</div>
                       <div className="mt-1 text-xs text-slate-400">ID: {p.id}</div>
@@ -583,7 +583,7 @@ export default function Product() {
                 <button
                   type="submit"
                   disabled={saving || categories.length === 0}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving && <LoaderCircle size={16} className="animate-spin" />}
                   {saving ? "Saving..." : editingId ? "Save changes" : "Create product"}
@@ -660,7 +660,7 @@ export default function Product() {
                 <button
                   type="submit"
                   disabled={savingCategory || !categoryName.trim()}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {savingCategory && <LoaderCircle size={16} className="animate-spin" />}
                   {savingCategory ? "Saving..." : "Create category"}

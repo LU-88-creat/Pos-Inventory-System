@@ -207,7 +207,7 @@
 //           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
 //             <div className="flex items-center justify-between">
 //               <p className="text-sm text-slate-500">Total transactions</p>
-//               <Receipt className="text-blue-600" size={22} />
+//               <Receipt className="text-green-600" size={22} />
 //             </div>
 //             <p className="mt-3 text-2xl font-bold text-slate-800">
 //               {sales.length}
@@ -247,14 +247,14 @@
 //                 value={search}
 //                 onChange={(event) => setSearch(event.target.value)}
 //                 placeholder="Search receipt number or sale ID"
-//                 className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+//                 className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
 //               />
 //             </div>
 
 //             <select
 //               value={statusFilter}
 //               onChange={(event) => setStatusFilter(event.target.value)}
-//               className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+//               className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-green-500"
 //             >
 //               <option value="all">All statuses</option>
 //               <option value="completed">Completed</option>
@@ -266,7 +266,7 @@
 //             <select
 //               value={paymentFilter}
 //               onChange={(event) => setPaymentFilter(event.target.value)}
-//               className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+//               className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-green-500"
 //             >
 //               <option value="all">All payment methods</option>
 //               <option value="cash">Cash</option>
@@ -546,7 +546,7 @@
 //                     <span className="font-semibold text-slate-800">
 //                       Total
 //                     </span>
-//                     <span className="font-bold text-blue-700">
+//                     <span className="font-bold text-green-700">
 //                       {formatKES(selectedSale.total_amount)}
 //                     </span>
 //                   </div>
@@ -778,7 +778,7 @@ export default function Sales() {
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">Total transactions</p>
-              <Receipt className="text-blue-600" size={22} />
+              <Receipt className="text-green-600" size={22} />
             </div>
             <p className="mt-3 text-2xl font-bold text-slate-800">
               {sales.length}
@@ -818,14 +818,14 @@ export default function Sales() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search receipt number or sale ID"
-                className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-green-500"
             >
               <option value="all">All statuses</option>
               <option value="completed">Completed</option>
@@ -837,7 +837,7 @@ export default function Sales() {
             <select
               value={paymentFilter}
               onChange={(event) => setPaymentFilter(event.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-green-500"
             >
               <option value="all">All payment methods</option>
               <option value="cash">Cash</option>
@@ -1117,7 +1117,7 @@ export default function Sales() {
                     <span className="font-semibold text-slate-800">
                       Total
                     </span>
-                    <span className="font-bold text-blue-700">
+                    <span className="font-bold text-green-700">
                       {formatKES(selectedSale.total_amount)}
                     </span>
                   </div>
@@ -1216,7 +1216,7 @@ export default function Sales() {
               <button
                 type="button"
                 onClick={printSaleReceipt}
-                className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
+                className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700"
                 disabled={detailsLoading || Boolean(detailsError)}
               >
                 <Printer size={18} />

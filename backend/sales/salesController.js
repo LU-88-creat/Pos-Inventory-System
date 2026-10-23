@@ -6,7 +6,7 @@ import {
   getSaleById,
   getAllSales,
 } from "./salesModel.js";
-import { createStockMovement } from "../stock/stockModel.js";
+import { fulfillSale } from "./saleFulfillment.js";
 
 
 export async function listSales(req, res) {
@@ -273,7 +273,7 @@ export async function addSale(req, res) {
 }
 
 
-export async function completeCashSale(req, res) {
+export async function completeSale(req, res) {
   const id = Number(req.params.id);
 
   if (!Number.isInteger(id) || id <= 0) {
@@ -307,7 +307,7 @@ export async function completeCashSale(req, res) {
 
     if (sale.payment_method !== "cash") {
       const error = new Error(
-        "Only cash sales can be completed through this endpoint."
+        "M-Pesa sales can only be completed after a successful Daraja callback."
       );
       error.statusCode = 409;
       throw error;
@@ -321,95 +321,13 @@ export async function completeCashSale(req, res) {
       throw error;
     }
 
-    const [items] = await connection.execute(
-      `SELECT product_id, quantity
-       FROM sale_items
-       WHERE sale_id = ?
-       ORDER BY id ASC`,
-      [id]
-    );
-
-    if (items.length === 0) {
-      const error = new Error("Cannot complete a sale without items.");
-      error.statusCode = 400;
-      throw error;
-    }
-
-
-    // Deduct stock and record each movement in the same transaction.
-    for (const item of items) {
-      const quantity = Number(item.quantity);
-
-      const [products] = await connection.execute(
-        `SELECT id, product_name, stock_quantity
-         FROM products
-         WHERE id = ? AND is_active = TRUE
-         FOR UPDATE`,
-        [item.product_id]
-      );
-
-      if (products.length === 0) {
-        const error = new Error(
-          `Product ID ${item.product_id} was not found or is inactive.`
-        );
-        error.statusCode = 409;
-        throw error;
-      }
-
-      const product = products[0];
-      const previousStock = Number(product.stock_quantity);
-
-      if (previousStock < quantity) {
-        const error = new Error(
-          `Insufficient stock for ${product.product_name}.`
-        );
-        error.statusCode = 409;
-        throw error;
-      }
-
-      const newStock = Number(
-        (previousStock - quantity).toFixed(3)
-      );
-
-      const [result] = await connection.execute(
-        `UPDATE products
-         SET stock_quantity = ?
-         WHERE id = ? AND stock_quantity >= ?`,
-        [newStock, product.id, quantity]
-      );
-
-      if (result.affectedRows !== 1) {
-        const error = new Error(
-          `Stock update failed for ${product.product_name}.`
-        );
-        error.statusCode = 409;
-        throw error;
-      }
-
-      await createStockMovement(connection, {
-        product_id: product.id,
-        movement_type: "sale",
-        quantity,
-        previous_stock: previousStock,
-        new_stock: newStock,
-        reference_type: "sale",
-        reference_id: id,
-        notes: `Stock deducted for receipt ${id}`,
-      });
-    }
-
-    await connection.execute(
-      `UPDATE sales
-       SET payment_status = 'completed'
-       WHERE id = ? AND payment_status = 'pending'`,
-      [id]
-    );
+    await fulfillSale(connection, id, sale);
 
     await connection.commit();
 
     return res.status(200).json({
       success: true,
-      message: "Cash sale completed and stock updated.",
+      message: `${sale.payment_method === "mpesa" ? "M-Pesa" : "Cash"} sale completed and stock updated.`,
       data: {
         sale_id: id,
         payment_status: "completed",
@@ -427,11 +345,11 @@ export async function completeCashSale(req, res) {
       });
     }
 
-    console.error("Complete cash sale error:", error.message);
+    console.error("Complete sale error:", error.message);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to complete cash sale.",
+      message: "Failed to complete sale.",
     });
   } finally {
     if (connection) {
@@ -479,6 +397,23 @@ export async function cancelSale(req, res) {
       return res.status(409).json({
         success: false,
         message: "Only pending sales can be cancelled.",
+      });
+    }
+
+    const [pendingMpesaAttempts] = await connection.execute(
+      `SELECT id
+       FROM mpesa_transactions
+       WHERE sale_id = ? AND status = 'pending'
+       LIMIT 1`,
+      [id]
+    );
+
+    if (pendingMpesaAttempts.length > 0) {
+      await connection.rollback();
+
+      return res.status(409).json({
+        success: false,
+        message: "This sale cannot be cancelled while an M-Pesa request is pending.",
       });
     }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Search,
   ShoppingCart,
@@ -13,6 +13,7 @@ import {
   Banknote,
   CheckCircle2,
   Printer,
+  Smartphone,
 } from "lucide-react";
 
 const PRODUCT_API = "http://localhost:5000/api/products";
@@ -84,11 +85,15 @@ export default function POS() {
   const [notice, setNotice] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [mpesaPhone, setMpesaPhone] = useState("");
+  const [stkPushInitiated, setStkPushInitiated] = useState(false);
+  const [mpesaStatusMessage, setMpesaStatusMessage] = useState("");
   const [pendingSaleId, setPendingSaleId] = useState(null);
   const [completedReceipt, setCompletedReceipt] = useState(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
 
-  async function loadProducts() {
+  const loadProducts = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -111,7 +116,7 @@ export default function POS() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -153,6 +158,67 @@ export default function POS() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!pendingSaleId || paymentMethod !== "mpesa" || !stkPushInitiated) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let timer;
+
+    async function checkPaymentStatus() {
+      try {
+        const response = await fetch(`${SALES_API}/${pendingSaleId}/mpesa-status`);
+        const result = await readResponse(response);
+        if (cancelled) return;
+
+        const sale = result?.data?.sale;
+        const attempt = result?.data?.attempt;
+        if (attempt?.status === "failed") {
+          setMpesaStatusMessage(
+            attempt.result_description || "The M-Pesa payment was not completed. You can send a new prompt."
+          );
+          setStkPushInitiated(false);
+          return;
+        }
+
+        if (sale?.payment_status === "completed") {
+          setCompletedReceipt({
+            ...sale,
+            mpesa_amount: Number(attempt?.requested_amount ?? Math.round(Number(sale.total_amount))),
+            mpesa_receipt_number: attempt?.mpesa_receipt_number ?? null,
+          });
+          setPendingSaleId(null);
+          setStkPushInitiated(false);
+          setPaymentMethod("cash");
+          setMpesaPhone("");
+          setCart([]);
+          setCheckoutOpen(false);
+          setNotice(`M-Pesa sale completed successfully. Receipt / sale ID: ${sale.id}.`);
+          setMpesaStatusMessage("");
+          await loadProducts();
+          return;
+        }
+
+        setMpesaStatusMessage("Waiting for the customer to complete the M-Pesa prompt…");
+        timer = setTimeout(checkPaymentStatus, 3000);
+      } catch (statusError) {
+        if (!cancelled) {
+          setMpesaStatusMessage(
+            `Could not check payment status: ${statusError.message}. Retrying…`
+          );
+          timer = setTimeout(checkPaymentStatus, 5000);
+        }
+      }
+    }
+
+    timer = setTimeout(checkPaymentStatus, 2000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [loadProducts, paymentMethod, pendingSaleId, stkPushInitiated]);
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -246,15 +312,15 @@ export default function POS() {
   const taxAmount = Number(cartTotals.tax.toFixed(2));
   const total = Number((subtotal - discountAmount + taxAmount).toFixed(2));
 
-  async function completeCashSale(saleId) {
-    const response = await fetch(`${SALES_API}/${saleId}/complete-cash`, {
+  async function completeSale(saleId) {
+    const response = await fetch(`${SALES_API}/${saleId}/complete-payment`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
     });
     return readResponse(response);
   }
 
-  async function handleCashCheckout() {
+  async function handleCheckout() {
     if (checkoutLoading) return;
     setError("");
     setNotice("");
@@ -264,13 +330,24 @@ export default function POS() {
       return;
     }
 
+    if (paymentMethod === "mpesa") {
+      const phone = mpesaPhone.replace(/[\s()+-]/g, "");
+      const normalizedPhone = phone.startsWith("0")
+        ? `254${phone.slice(1)}`
+        : phone;
+      if (!/^254(?:7|1)\d{8}$/.test(normalizedPhone)) {
+        setError("Enter a valid Kenyan M-Pesa number, for example 0712345678.");
+        return;
+      }
+    }
+
     setCheckoutLoading(true);
 
     try {
       let saleId = pendingSaleId;
 
-      // If a pending sale was already created but cash completion failed,
-      // retry completion for that same sale instead of creating a duplicate.
+      // If a pending sale was already created but payment completion failed,
+      // retry that sale instead of creating a duplicate.
       if (!saleId) {
         const receiptNumber = `POS-${Date.now()}`;
         const createResponse = await fetch(SALES_API, {
@@ -282,7 +359,7 @@ export default function POS() {
             discount_amount: discountAmount,
             tax_amount: taxAmount,
             total_amount: total,
-            payment_method: "cash",
+            payment_method: paymentMethod,
             items: cart.map((item) => ({
               product_id: item.id,
               quantity: item.quantity,
@@ -302,8 +379,22 @@ export default function POS() {
         setPendingSaleId(saleId);
       }
 
+      if (paymentMethod === "mpesa") {
+        const stkResponse = await fetch(`${SALES_API}/${saleId}/mpesa/stk-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone_number: mpesaPhone }),
+        });
+        const stkResult = await readResponse(stkResponse);
+        setMpesaStatusMessage(
+          stkResult.message || "M-Pesa prompt sent. Waiting for payment confirmation…"
+        );
+        setStkPushInitiated(true);
+        return;
+      }
+
       try {
-        await completeCashSale(saleId);
+        await completeSale(saleId);
       } catch (completionError) {
         // Confirm whether the sale was completed despite a lost/failed response.
         try {
@@ -315,7 +406,7 @@ export default function POS() {
           }
         } catch {
           throw new Error(
-            `Sale #${saleId} was created, but cash completion could not be confirmed. Your cart has been preserved. Use Retry cash completion rather than starting a new sale. Details: ${completionError.message}`
+            `Sale #${saleId} was created, but ${paymentMethod} payment completion could not be confirmed. Your cart has been preserved. Retry this payment rather than starting a new sale. Details: ${completionError.message}`
           );
         }
       }
@@ -329,7 +420,7 @@ export default function POS() {
         subtotal,
         discount_amount: discountAmount,
         tax_amount: taxAmount,
-        payment_method: "cash",
+        payment_method: paymentMethod,
         payment_status: "completed",
         created_at: new Date().toISOString(),
         items: cart.map((item) => {
@@ -350,9 +441,12 @@ export default function POS() {
 
       setCompletedReceipt(fallbackReceipt);
       setPendingSaleId(null);
+      setStkPushInitiated(false);
+      setPaymentMethod("cash");
+      setMpesaPhone("");
       setCart([]);
       setCheckoutOpen(false);
-      setNotice(`Cash sale completed successfully. Receipt / sale ID: ${saleId}.`);
+      setNotice(`${paymentMethod === "mpesa" ? "M-Pesa" : "Cash"} sale completed successfully. Receipt / sale ID: ${saleId}.`);
 
       // Load the authoritative receipt values from the sales API when available.
       setReceiptLoading(true);
@@ -380,7 +474,7 @@ export default function POS() {
 
       await loadProducts();
     } catch (err) {
-      setError(err.message || "Cash checkout failed. Your cart has been preserved.");
+      setError(err.message || "Checkout failed. Your cart has been preserved.");
     } finally {
       setCheckoutLoading(false);
     }
@@ -391,6 +485,10 @@ export default function POS() {
     setNotice("");
     setError("");
     setCart([]);
+    setPaymentMethod("cash");
+    setMpesaPhone("");
+    setStkPushInitiated(false);
+    setMpesaStatusMessage("");
   }
 
   function printReceipt() {
@@ -399,7 +497,16 @@ export default function POS() {
 
   const receiptItems = completedReceipt?.items ?? [];
   const receiptTotal = Number(
+    completedReceipt?.mpesa_amount ??
+      completedReceipt?.total_amount ??
+      completedReceipt?.total ??
+      0
+  );
+  const receiptSaleTotal = Number(
     completedReceipt?.total_amount ?? completedReceipt?.total ?? 0
+  );
+  const mpesaRoundingAdjustment = Number(
+    (receiptTotal - receiptSaleTotal).toFixed(2)
   );
   const receiptDate = completedReceipt?.created_at
     ? new Date(completedReceipt.created_at)
@@ -411,7 +518,8 @@ export default function POS() {
         @media print {
           body * { visibility: hidden !important; }
           #pos-receipt, #pos-receipt * { visibility: visible !important; }
-          #pos-receipt { position: absolute; left: 0; top: 0; width: 100%; max-width: 100%; margin: 0; padding: 16px; border: 0 !important; box-shadow: none !important; }
+          #receipt-overlay { position: static !important; padding: 0 !important; background: transparent !important; }
+          #pos-receipt { position: fixed; left: 0; top: 0; width: 100%; max-width: 100%; max-height: none; margin: 0; padding: 16px; overflow: visible; border: 0 !important; box-shadow: none !important; }
           .pos-no-print { display: none !important; }
           body { background: #fff !important; }
         }
@@ -447,10 +555,17 @@ export default function POS() {
         )}
 
         {completedReceipt && (
-          <section id="pos-receipt" className="mx-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+          <div
+            id="receipt-overlay"
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="receipt-title"
+          >
+          <section id="pos-receipt" className="my-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
             <div className="border-b border-dashed border-slate-300 pb-5 text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Sales receipt</p>
-              <h2 className="mt-2 text-2xl font-extrabold text-slate-900">Retail POS</h2>
+              <h2 id="receipt-title" className="mt-2 text-2xl font-extrabold text-slate-900">Retail POS</h2>
               <p className="mt-1 text-sm text-slate-500">Thank you for shopping with us.</p>
             </div>
 
@@ -460,6 +575,9 @@ export default function POS() {
               <p><span className="text-slate-500">Date: </span><strong>{Number.isNaN(receiptDate.getTime()) ? "—" : receiptDate.toLocaleString("en-KE")}</strong></p>
               <p><span className="text-slate-500">Payment: </span><strong>{String(completedReceipt.payment_method ?? "cash").toUpperCase()}</strong></p>
               <p><span className="text-slate-500">Status: </span><strong>{String(completedReceipt.payment_status ?? "completed").toUpperCase()}</strong></p>
+              {completedReceipt.mpesa_receipt_number && (
+                <p><span className="text-slate-500">M-Pesa receipt: </span><strong>{completedReceipt.mpesa_receipt_number}</strong></p>
+              )}
             </div>
 
             <div className="py-4">
@@ -496,16 +614,27 @@ export default function POS() {
               <div className="flex justify-between gap-4"><span className="text-slate-500">Subtotal</span><span>{formatKES(completedReceipt.subtotal ?? receiptTotal)}</span></div>
               <div className="flex justify-between gap-4"><span className="text-slate-500">Discount</span><span>-{formatKES(completedReceipt.discount_amount)}</span></div>
               <div className="flex justify-between gap-4"><span className="text-slate-500">Tax</span><span>{formatKES(completedReceipt.tax_amount)}</span></div>
+              {completedReceipt.payment_method === "mpesa" &&
+                Math.abs(mpesaRoundingAdjustment) >= 0.01 && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-500">M-Pesa rounding adjustment</span>
+                    <span>
+                      {mpesaRoundingAdjustment > 0 ? "+" : "-"}
+                      {formatKES(Math.abs(mpesaRoundingAdjustment))}
+                    </span>
+                  </div>
+                )}
               <div className="flex justify-between gap-4 border-t border-slate-200 pt-3 text-lg font-extrabold text-slate-900"><span>Total paid</span><span>{formatKES(receiptTotal)}</span></div>
             </div>
 
             <p className="mt-6 border-t border-dashed border-slate-300 pt-4 text-center text-xs text-slate-500">Please keep this receipt for your records.</p>
             {receiptLoading && <p className="mt-3 text-center text-xs text-slate-500">Refreshing receipt details from the database…</p>}
             <div className="pos-no-print mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-              <button type="button" onClick={printReceipt} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"><Printer size={17} /> Print receipt</button>
+              <button type="button" onClick={printReceipt} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"><Printer size={17} /> Print receipt</button>
               <button type="button" onClick={startNewSale} className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Start new sale</button>
             </div>
           </section>
+          </div>
         )}
 
         <div className="pos-no-print grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
@@ -517,7 +646,7 @@ export default function POS() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search product, SKU, or barcode..."
-                  className="min-h-12 w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                  className="min-h-12 w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
                 />
               </div>
               <button
@@ -539,13 +668,13 @@ export default function POS() {
 
               {loading ? (
                 <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-slate-500">
-                  <LoaderCircle size={28} className="animate-spin text-orange-600" />
+                  <LoaderCircle size={28} className="animate-spin text-green-600" />
                   Loading products...
                 </div>
               ) : error && products.length === 0 ? (
                 <div className="py-10 text-center">
                   <p className="text-sm text-red-600">{error}</p>
-                  <button type="button" onClick={loadProducts} className="mt-3 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white">
+                  <button type="button" onClick={loadProducts} className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white">
                     Try again
                   </button>
                 </div>
@@ -560,13 +689,13 @@ export default function POS() {
               ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {filteredProducts.map((product) => (
-                    <article key={product.id} className="flex min-w-0 flex-col rounded-xl border border-slate-200 p-4 transition hover:border-orange-300 hover:shadow-sm">
+                    <article key={product.id} className="flex min-w-0 flex-col rounded-xl border border-slate-200 p-4 transition hover:border-green-300 hover:shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="break-words font-semibold text-slate-900">{product.product_name}</h3>
                           <p className="mt-1 break-all text-xs text-slate-500">SKU: {product.sku}</p>
                         </div>
-                        <div className="shrink-0 rounded-lg bg-orange-50 p-2 text-orange-600"><Package size={19} /></div>
+                        <div className="shrink-0 rounded-lg bg-green-50 p-2 text-green-600"><Package size={19} /></div>
                       </div>
                       <div className="mt-4 flex items-end justify-between gap-2">
                         <div>
@@ -577,7 +706,7 @@ export default function POS() {
                           type="button"
                           onClick={() => addToCart(product)}
                           disabled={Number(product.stock_quantity) <= 0 || Boolean(pendingSaleId)}
-                          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Plus size={16} /> Add
                         </button>
@@ -595,7 +724,7 @@ export default function POS() {
                 <h2 className="font-semibold text-slate-900">Current sale</h2>
                 <p className="mt-1 text-xs text-slate-500">Review items before checkout</p>
               </div>
-              <div className="rounded-xl bg-orange-50 p-3 text-orange-600"><ShoppingCart size={21} /></div>
+              <div className="rounded-xl bg-green-50 p-3 text-green-600"><ShoppingCart size={21} /></div>
             </div>
 
             {cart.length === 0 ? (
@@ -604,8 +733,8 @@ export default function POS() {
                 <p className="mt-3 font-semibold text-slate-800">Your cart is empty</p>
                 <p className="mt-1 text-sm text-slate-500">Add a product to begin a sale.</p>
                 {pendingSaleId && (
-                  <button type="button" onClick={() => setCheckoutOpen(true)} className="mt-4 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">
-                    Retry cash completion for sale #{pendingSaleId}
+                  <button type="button" onClick={() => setCheckoutOpen(true)} className="mt-4 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+                    Retry {paymentMethod === "mpesa" ? "M-Pesa" : "cash"} payment for sale #{pendingSaleId}
                   </button>
                 )}
               </div>
@@ -624,17 +753,17 @@ export default function POS() {
                             Discount {line.discountRate}% (-{formatKES(line.discountAmount)}) · Tax {line.taxRate}% (+{formatKES(line.taxAmount)})
                           </p>
                         </div>
-                        <button type="button" onClick={() => removeFromCart(item.id)} aria-label={`Remove ${item.product_name}`} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600">
+                        <button type="button" onClick={() => removeFromCart(item.id)} disabled={Boolean(pendingSaleId)} aria-label={`Remove ${item.product_name}`} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40">
                           <Trash2 size={16} />
                         </button>
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => changeQuantity(item.id, -1)} aria-label={`Decrease ${item.product_name} quantity`} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50">
+                          <button type="button" onClick={() => changeQuantity(item.id, -1)} disabled={Boolean(pendingSaleId)} aria-label={`Decrease ${item.product_name} quantity`} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
                             <Minus size={14} />
                           </button>
                           <span className="min-w-6 text-center text-sm font-semibold">{item.quantity}</span>
-                          <button type="button" onClick={() => changeQuantity(item.id, 1)} aria-label={`Increase ${item.product_name} quantity`} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50">
+                          <button type="button" onClick={() => changeQuantity(item.id, 1)} disabled={Boolean(pendingSaleId)} aria-label={`Increase ${item.product_name} quantity`} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
                             <Plus size={14} />
                           </button>
                         </div>
@@ -663,10 +792,10 @@ export default function POS() {
                 type="button"
                 disabled={cart.length === 0 || checkoutLoading}
                 onClick={() => { setError(""); setCheckoutOpen(true); }}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ShoppingCart size={18} />
-                {pendingSaleId ? "Retry cash completion" : "Proceed to checkout"}
+                {pendingSaleId ? `Retry ${paymentMethod === "mpesa" ? "M-Pesa" : "cash"} payment` : "Proceed to checkout"}
               </button>
             </div>
           </aside>
@@ -674,27 +803,80 @@ export default function POS() {
       </div>
 
       {checkoutOpen && (
-        <div className="pos-no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="cash-checkout-title">
+        <div className="pos-no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="mb-3 inline-flex rounded-xl bg-green-50 p-3 text-green-700"><Banknote size={24} /></div>
-                <h2 id="cash-checkout-title" className="text-xl font-bold text-slate-900">
-                  {pendingSaleId ? "Retry cash completion" : "Confirm cash payment"}
+                <div className="mb-3 inline-flex rounded-xl bg-green-50 p-3 text-green-700">
+                  {paymentMethod === "mpesa" ? <Smartphone size={24} /> : <Banknote size={24} />}
+                </div>
+                <h2 id="checkout-title" className="text-xl font-bold text-slate-900">
+                  {pendingSaleId
+                    ? `Retry ${paymentMethod === "mpesa" ? "M-Pesa" : "cash"} payment`
+                    : `Confirm ${paymentMethod === "mpesa" ? "M-Pesa" : "cash"} payment`}
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
                   {pendingSaleId
-                    ? `Retry completing sale #${pendingSaleId}. Do not create another sale.`
-                    : "Confirm that you have received the full cash amount from the customer before completing this sale."}
+                    ? paymentMethod === "mpesa"
+                      ? `Retry the M-Pesa prompt for sale #${pendingSaleId}. Do not create another sale.`
+                      : `Retry completing sale #${pendingSaleId}. Do not create another sale.`
+                    : paymentMethod === "mpesa"
+                      ? "Send an STK Push to the customer's phone. The sale will complete only after Safaricom confirms payment."
+                      : "Confirm that you have received the full cash amount from the customer before completing this sale."}
                 </p>
               </div>
               <button type="button" onClick={() => setCheckoutOpen(false)} disabled={checkoutLoading} aria-label="Close checkout" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50">
                 <X size={20} />
               </button>
             </div>
+            {!pendingSaleId && (
+              <div className="mt-5 grid grid-cols-2 gap-3" aria-label="Payment method">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("cash")}
+                  aria-pressed={paymentMethod === "cash"}
+                  disabled={checkoutLoading}
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${paymentMethod === "cash" ? "border-green-700 bg-green-50 text-green-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                >
+                  <Banknote size={18} /> Cash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("mpesa")}
+                  aria-pressed={paymentMethod === "mpesa"}
+                  disabled={checkoutLoading}
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${paymentMethod === "mpesa" ? "border-green-700 bg-green-50 text-green-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                >
+                  <Smartphone size={18} /> M-Pesa
+                </button>
+              </div>
+            )}
+            {paymentMethod === "mpesa" && (
+              <div className="mt-4">
+                <label htmlFor="mpesa-phone" className="mb-1 block text-sm font-medium text-slate-700">
+                  Customer M-Pesa phone number
+                </label>
+                <input
+                  id="mpesa-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={mpesaPhone}
+                  onChange={(event) => setMpesaPhone(event.target.value)}
+                  disabled={stkPushInitiated}
+                  placeholder="0712345678 or 254712345678"
+                  className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-green-600 disabled:bg-slate-100"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  The customer will receive an M-Pesa payment prompt on this phone.
+                  Amount requested: {formatKES(Math.round(total))}.
+                </p>
+              </div>
+            )}
             <div className="my-5 rounded-xl bg-slate-50 p-4">
               <div className="flex items-center justify-between text-sm text-slate-600">
-                <span>{cart.reduce((sum, item) => sum + item.quantity, 0)} item units</span><span>Payment: Cash</span>
+                <span>{cart.reduce((sum, item) => sum + item.quantity, 0)} item units</span>
+                <span>Payment: {paymentMethod === "mpesa" ? "M-Pesa" : "Cash"}</span>
               </div>
               <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 text-sm">
                 <div className="flex justify-between gap-3 text-slate-600">
@@ -709,16 +891,36 @@ export default function POS() {
               </div>
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-900">Amount to collect</span>
-                <span className="text-xl font-bold text-slate-900">{formatKES(total)}</span>
+                <span className="text-xl font-bold text-slate-900">
+                  {formatKES(paymentMethod === "mpesa" ? Math.round(total) : total)}
+                </span>
               </div>
             </div>
+            {mpesaStatusMessage && paymentMethod === "mpesa" && (
+              <p role="status" className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">
+                {mpesaStatusMessage}
+              </p>
+            )}
+            {error && (
+              <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {error}
+              </p>
+            )}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button type="button" onClick={() => setCheckoutOpen(false)} disabled={checkoutLoading} className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
                 Cancel
               </button>
-              <button type="button" onClick={handleCashCheckout} disabled={checkoutLoading} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-60">
-                {checkoutLoading ? <LoaderCircle size={17} className="animate-spin" /> : <CheckCircle2 size={17} />}
-                {checkoutLoading ? "Processing..." : "Confirm cash received"}
+              <button type="button" onClick={handleCheckout} disabled={checkoutLoading || stkPushInitiated} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-60">
+                {checkoutLoading || stkPushInitiated
+                  ? <LoaderCircle size={17} className="animate-spin" />
+                  : <CheckCircle2 size={17} />}
+                {checkoutLoading
+                  ? "Processing..."
+                  : stkPushInitiated
+                    ? "Waiting for payment"
+                    : paymentMethod === "mpesa"
+                      ? "Send M-Pesa prompt"
+                      : "Confirm cash received"}
               </button>
             </div>
           </div>

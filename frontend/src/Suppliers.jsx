@@ -27,7 +27,7 @@ const emptyForm = {
 };
 
 const inputClass =
-  "min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100";
+  "min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -222,7 +222,7 @@ export default function Suppliers() {
         <button
           type="button"
           onClick={openAddForm}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
         >
           <Plus size={18} />
           Add Supplier
@@ -266,7 +266,7 @@ export default function Suppliers() {
                 {loading ? "—" : suppliers.length}
               </p>
             </div>
-            <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
+            <div className="rounded-xl bg-green-50 p-3 text-green-600">
               <Truck size={24} />
             </div>
           </div>
@@ -409,7 +409,7 @@ export default function Suppliers() {
               <button
                 type="submit"
                 disabled={saving}
-                className="min-h-11 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving
                   ? "Saving..."
@@ -488,7 +488,7 @@ export default function Suppliers() {
               <button
                 type="button"
                 onClick={openAddForm}
-                className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+                className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
               >
                 <Plus size={17} />
                 Add first supplier
@@ -514,7 +514,7 @@ export default function Suppliers() {
                     const isActive = Number(supplier.is_active) === 1;
 
                     return (
-                      <tr key={supplier.id} className="transition hover:bg-orange-50/30">
+                      <tr key={supplier.id} className="transition hover:bg-green-50/30">
                         <td className="px-5 py-4">
                           <p className="font-semibold text-slate-900">
                             {supplier.supplier_name}
@@ -578,7 +578,7 @@ export default function Suppliers() {
                               onClick={() => openEditForm(supplier)}
                               title="Edit supplier"
                               aria-label={`Edit ${supplier.supplier_name}`}
-                              className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                              className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700"
                             >
                               <Pencil size={16} />
                             </button>

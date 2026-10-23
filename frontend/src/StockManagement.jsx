@@ -11,6 +11,7 @@ import {
   LoaderCircle,
   Plus,
   Minus,
+  X,
 } from "lucide-react";
 
 const API_BASE = "http://localhost:5000/api";
@@ -254,120 +255,6 @@ export default function StockManagement() {
             </button>
           </div>
 
-          
-          {stockAction && (
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  {stockAction === "in" ? "Receive Stock" : "Remove Stock"}
-                </h2>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStockAction(null);
-                    setFormError("");
-                    setFormSuccess("");
-                  }}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <form onSubmit={handleStockSubmit} className="space-y-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Product
-                  </label>
-
-                  <select
-                    value={selectedProduct}
-                    onChange={(event) => setSelectedProduct(event.target.value)}
-                    required
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  >
-                    <option value="">Select a product</option>
-
-                    {products
-                      .filter((product) => product.is_active !== 0 && product.is_active !== false)
-                      .map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.product_name} ({product.sku})
-                        </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Quantity
-                  </label>
-
-                  <input
-                    type="number"
-                    min="0.001"
-                    step="0.001"
-                    value={quantity}
-                    onChange={(event) => setQuantity(event.target.value)}
-                    required
-                    placeholder="Enter quantity"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Notes (optional)
-                  </label>
-
-                  <textarea
-                    value={stockNotes}
-                    onChange={(event) => setStockNotes(event.target.value)}
-                    maxLength={255}
-                    rows={3}
-                    placeholder={
-                      stockAction === "in"
-                        ? "e.g. New supplier delivery"
-                        : "e.g. Damaged or missing items"
-                    }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  />
-                </div> 
-
-                {formError && (
-                  <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                    {formError}
-                  </p>
-                )}
-
-                {formSuccess && (
-                  <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
-                    {formSuccess}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className={`rounded-lg px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 ${
-                    stockAction === "in"
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-red-600 hover:bg-red-700"
-                  }`}
-                >
-                  {submitting
-                    ? "Saving..."
-                    : stockAction === "in"
-                      ? "Confirm Stock In"
-                      : "Confirm Stock Out"}
-                </button>
-              </form>
-            </div>
-          )}
-
-
-
           <button
             type="button"
             onClick={loadStockData}
@@ -381,6 +268,151 @@ export default function StockManagement() {
             Refresh
           </button>
         </div>
+
+        {stockAction && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stock-action-title"
+          >
+            <div className="my-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div
+                    className={`mb-3 inline-flex rounded-xl p-3 ${
+                      stockAction === "in"
+                        ? "bg-green-50 text-green-700"
+                        : "bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {stockAction === "in" ? <Plus size={22} /> : <Minus size={22} />}
+                  </div>
+                  <h2 id="stock-action-title" className="text-xl font-bold text-slate-900">
+                    {stockAction === "in" ? "Receive Stock" : "Remove Stock"}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {stockAction === "in"
+                      ? "Record the quantity received into inventory."
+                      : "Record the quantity removed from inventory."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStockAction(null);
+                    setFormError("");
+                    setFormSuccess("");
+                  }}
+                  disabled={submitting}
+                  aria-label="Close stock form"
+                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleStockSubmit} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Product
+                  </label>
+                  <select
+                    value={selectedProduct}
+                    onChange={(event) => setSelectedProduct(event.target.value)}
+                    required
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-green-500"
+                  >
+                    <option value="">Select a product</option>
+                    {products
+                      .filter((product) => product.is_active !== 0 && product.is_active !== false)
+                      .map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.product_name} ({product.sku})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
+                    required
+                    placeholder="Enter quantity"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    value={stockNotes}
+                    onChange={(event) => setStockNotes(event.target.value)}
+                    maxLength={255}
+                    rows={3}
+                    placeholder={
+                      stockAction === "in"
+                        ? "e.g. New supplier delivery"
+                        : "e.g. Damaged or missing items"
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-green-500"
+                  />
+                </div>
+
+                {formError && (
+                  <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                    {formError}
+                  </p>
+                )}
+
+                {formSuccess && (
+                  <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+                    {formSuccess}
+                  </p>
+                )}
+
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStockAction(null);
+                      setFormError("");
+                      setFormSuccess("");
+                    }}
+                    disabled={submitting}
+                    className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className={`min-h-11 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 ${
+                      stockAction === "in"
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-red-600 hover:bg-red-700"
+                    }`}
+                  >
+                    {submitting
+                      ? "Saving..."
+                      : stockAction === "in"
+                        ? "Confirm Stock In"
+                        : "Confirm Stock Out"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div
@@ -452,7 +484,7 @@ export default function StockManagement() {
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search name, SKU or barcode..."
                 aria-label="Search inventory"
-                className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100"
               />
             </div>
           </div>
@@ -487,7 +519,7 @@ export default function StockManagement() {
                     >
                       <LoaderCircle
                         size={24}
-                        className="mx-auto mb-2 animate-spin text-orange-600"
+                        className="mx-auto mb-2 animate-spin text-green-600"
                       />
                       Loading stock data...
                     </td>
@@ -624,7 +656,7 @@ export default function StockManagement() {
                         <td className="px-5 py-4">
                           <span
                             className={`inline-flex items-center gap-1.5 font-semibold ${
-                              incoming ? "text-green-700" : "text-orange-700"
+                              incoming ? "text-green-700" : "text-red-700"
                             }`}
                           >
                             {incoming ? (
@@ -671,7 +703,7 @@ function SummaryCard({
   value,
   icon,
   loading,
-  iconClassName = "bg-orange-50 text-orange-600",
+  iconClassName = "bg-green-50 text-green-600",
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -691,7 +723,7 @@ function SummaryCard({
 function LoadingMessage() {
   return (
     <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-slate-500">
-      <LoaderCircle size={28} className="animate-spin text-orange-600" />
+      <LoaderCircle size={28} className="animate-spin text-green-600" />
       <p className="text-sm">Loading stock movements...</p>
     </div>
   );

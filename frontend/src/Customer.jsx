@@ -221,7 +221,7 @@ export default function Customer() {
           <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
           >
             <Plus size={18} />
             Add Customer
@@ -274,7 +274,7 @@ export default function Customer() {
                   {loading ? "—" : customers.length}
                 </p>
               </div>
-              <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
+              <div className="rounded-xl bg-green-50 p-3 text-green-600">
                 <Users size={24} />
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function Customer() {
                     }
                   }}
                   placeholder="Search name, phone, email..."
-                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100"
                 />
               </div>
 
@@ -349,7 +349,7 @@ export default function Customer() {
             <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-slate-500">
               <LoaderCircle
                 size={30}
-                className="animate-spin text-orange-600"
+                className="animate-spin text-green-600"
               />
               <p className="text-sm">Loading customers...</p>
             </div>
@@ -362,7 +362,7 @@ export default function Customer() {
               <button
                 type="button"
                 onClick={() => loadCustomers(search)}
-                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
               >
                 Try again
               </button>
@@ -387,7 +387,7 @@ export default function Customer() {
                 <button
                   type="button"
                   onClick={openAddModal}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
                 >
                   <Plus size={17} />
                   Add first customer
@@ -417,7 +417,7 @@ export default function Customer() {
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 font-bold text-orange-700">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 font-bold text-green-700">
                             {customer.customer_name
                               ?.trim()
                               .charAt(0)
@@ -462,7 +462,7 @@ export default function Customer() {
                             title="Edit customer"
                             aria-label={`Edit ${customer.customer_name}`}
                             onClick={() => openEditModal(customer)}
-                            className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
+                            className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"
                           >
                             <Pencil size={16} />
                           </button>
@@ -556,7 +556,7 @@ export default function Customer() {
                   value={form.customer_name}
                   onChange={handleChange}
                   placeholder="Enter full name"
-                  className="min-h-11 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
                 />
               </div>
 
@@ -576,7 +576,7 @@ export default function Customer() {
                     value={form.phone}
                     onChange={handleChange}
                     placeholder="e.g. 0712345678"
-                    className="min-h-11 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
                   />
                 </div>
 
@@ -595,7 +595,7 @@ export default function Customer() {
                     value={form.email}
                     onChange={handleChange}
                     placeholder="name@example.com"
-                    className="min-h-11 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
                   />
                 </div>
               </div>
@@ -615,7 +615,7 @@ export default function Customer() {
                   value={form.address}
                   onChange={handleChange}
                   placeholder="Enter customer address"
-                  className="w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                  className="w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
                 />
               </div>
 
@@ -632,7 +632,7 @@ export default function Customer() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving && (
                     <LoaderCircle size={17} className="animate-spin" />

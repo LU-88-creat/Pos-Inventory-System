@@ -7,7 +7,6 @@ import {
   Users,
   Package,
   Boxes,
-  Tags,
   Truck,
   ClipboardList,
   Menu,
@@ -24,6 +23,7 @@ import POS from "./POS";
 import Sales from "./Sales";
 import StockManagement from "./StockManagement";
 import Suppliers from "./Suppliers";
+import brandLogo from "./assets/brand-logo.png";
 
 
 const modules = [
@@ -57,18 +57,20 @@ export default function Dashboard() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 text-white transition-transform duration-200 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-purple-950 text-white transition-transform duration-200 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0`}
       >
         <div className="flex h-[76px] items-center justify-between border-b border-white/10 px-5">
           <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-xl bg-orange-600">
-              <ShoppingCart size={23} />
-            </div>
+            <img
+              src={brandLogo}
+              alt="7 to 7 logo"
+              className="size-10 rounded-xl bg-white object-contain p-0.5"
+            />
             <div>
               <h1 className="text-lg font-bold tracking-tight">
-                RetailFlow
+                7 to 7
               </h1>
               <p className="text-[9px] font-bold tracking-[0.18em] text-slate-400">
                 POS & INVENTORY
@@ -108,7 +110,7 @@ export default function Dashboard() {
                   title={active ? label : `${label} — coming soon`}
                   className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${
                     selected
-                      ? "bg-orange-600/15 font-semibold text-orange-300 ring-1 ring-inset ring-orange-500/20"
+                      ? "bg-green-600/15 font-semibold text-green-300 ring-1 ring-inset ring-green-500/20"
                       : active
                         ? "text-slate-200 hover:bg-white/10"
                         : "cursor-not-allowed text-slate-400 opacity-60"
@@ -118,7 +120,7 @@ export default function Dashboard() {
                   <span className="flex-1">{label}</span>
 
                   {selected ? (
-                    <span className="size-1.5 rounded-full bg-orange-400" />
+                    <span className="size-1.5 rounded-full bg-green-400" />
                   ) : !active ? (
                     <LockKeyhole size={13} />
                   ) : null}
@@ -131,7 +133,7 @@ export default function Dashboard() {
         <div className="mt-auto p-4">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="flex items-center gap-3">
-              <div className="grid size-9 place-items-center rounded-lg bg-white/10 text-orange-300">
+              <div className="grid size-9 place-items-center rounded-lg bg-white/10 text-purple-300">
                 <Settings size={18} />
               </div>
               <div>
@@ -144,7 +146,7 @@ export default function Dashboard() {
           </div>
 
           <p className="mt-4 text-center text-[10px] text-slate-500">
-            RetailFlow · Kenya · KES
+            7 to 7 · Kenya · KES
           </p>
         </div>
       </aside>
@@ -188,7 +190,7 @@ export default function Dashboard() {
               <Bell size={19} />
             </button>
 
-            <div className="grid size-9 place-items-center rounded-full bg-orange-100 text-sm font-bold text-orange-800">
+            <div className="grid size-9 place-items-center rounded-full bg-purple-100 text-sm font-bold text-purple-800">
               A
             </div>
           </div>
@@ -204,7 +206,7 @@ export default function Dashboard() {
         </main>
 
         <footer className="flex flex-col gap-1 border-t border-slate-200 bg-white px-4 py-4 text-[10px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>RetailFlow POS & Inventory Management</span>
+          <span>7 to 7 POS & Inventory Management</span>
           <span>Currency: Kenyan Shilling (KES)</span>
         </footer>
       </div>
