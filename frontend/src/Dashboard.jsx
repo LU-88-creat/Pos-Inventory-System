@@ -24,6 +24,7 @@ import Sales from "./Sales";
 import StockManagement from "./StockManagement";
 import Suppliers from "./Suppliers";
 import brandLogo from "./assets/brand-logo.png";
+import Purchases from "./Purchases";
 
 
 const modules = [
@@ -34,7 +35,8 @@ const modules = [
   { label: "Products", icon: Package, active: true },
   { label: "Stock Management", icon: Boxes, active: true },
   { label: "Suppliers", icon: Truck, active: true },
-  { label: "Purchases", icon: ClipboardList },
+  { label: "Purchases", icon: ClipboardList, active: true },
+
 ];
 
 export default function Dashboard() {
@@ -57,7 +59,7 @@ export default function Dashboard() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-purple-950 text-white transition-transform duration-200 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-green-700 text-white transition-transform duration-200 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0`}
       >
@@ -72,14 +74,14 @@ export default function Dashboard() {
               <h1 className="text-lg font-bold tracking-tight">
                 7 to 7
               </h1>
-              <p className="text-[9px] font-bold tracking-[0.18em] text-slate-400">
+              <p className="text-[9px] font-bold tracking-[0.18em] text-white/70">
                 POS & INVENTORY
               </p>
             </div>
           </div>
 
           <button
-            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 md:hidden"
+            className="rounded-lg p-2 text-white/80 hover:bg-white/10 md:hidden"
             onClick={() => setSidebarOpen(false)}
             aria-label="Close menu"
           >
@@ -88,7 +90,7 @@ export default function Dashboard() {
         </div>
 
         <div className="px-4 pt-7">
-          <p className="mb-3 px-3 text-[10px] font-bold tracking-[0.18em] text-slate-500">
+          <p className="mb-3 px-3 text-[10px] font-bold tracking-[0.18em] text-white/60">
             WORKSPACE
           </p>
 
@@ -110,17 +112,17 @@ export default function Dashboard() {
                   title={active ? label : `${label} — coming soon`}
                   className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${
                     selected
-                      ? "bg-green-600/15 font-semibold text-green-300 ring-1 ring-inset ring-green-500/20"
+                      ? "bg-white/15 font-semibold text-white ring-1 ring-inset ring-white/20"
                       : active
-                        ? "text-slate-200 hover:bg-white/10"
-                        : "cursor-not-allowed text-slate-400 opacity-60"
+                        ? "text-white/90 hover:bg-white/10"
+                        : "cursor-not-allowed text-white/55"
                   }`}
                 >
                   <Icon size={18} />
                   <span className="flex-1">{label}</span>
 
                   {selected ? (
-                    <span className="size-1.5 rounded-full bg-green-400" />
+                    <span className="size-1.5 rounded-full bg-green-200" />
                   ) : !active ? (
                     <LockKeyhole size={13} />
                   ) : null}
@@ -131,21 +133,21 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-auto p-4">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="rounded-xl border border-white/20 bg-white/10 p-3">
             <div className="flex items-center gap-3">
-              <div className="grid size-9 place-items-center rounded-lg bg-white/10 text-purple-300">
+              <div className="grid size-9 place-items-center rounded-lg bg-white/15 text-green-100">
                 <Settings size={18} />
               </div>
               <div>
                 <p className="text-xs font-semibold">System setup</p>
-                <p className="mt-1 text-[10px] text-slate-400">
+                <p className="mt-1 text-[10px] text-white/70">
                   Products & Customers enabled
                 </p>
               </div>
             </div>
           </div>
 
-          <p className="mt-4 text-center text-[10px] text-slate-500">
+          <p className="mt-4 text-center text-[10px] text-white/60">
             7 to 7 · Kenya · KES
           </p>
         </div>
@@ -203,6 +205,7 @@ export default function Dashboard() {
           {activeModule === "Sales" && <Sales />}
           {activeModule === "Stock Management" && <StockManagement />}
           {activeModule === "Suppliers" && <Suppliers />}
+          {activeModule === "Purchases" && <Purchases />}
         </main>
 
         <footer className="flex flex-col gap-1 border-t border-slate-200 bg-white px-4 py-4 text-[10px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">

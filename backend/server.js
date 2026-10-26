@@ -6,6 +6,7 @@ import customerRoutes from "./customer/customerRoutes.js";
 import salesRoutes from "./sales/salesRoutes.js";
 import stockRoutes from "./stock/stockRoutes.js";
 import supplierRoutes from "./suppliers/supplierRoutes.js";
+import purchaseRoutes from "./purchases/purchaseRoutes.js";
 
 
 const app = express();
@@ -17,6 +18,7 @@ app.use("/api/sales", salesRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/stock", stockRoutes);
 app.use("/api/suppliers", supplierRoutes);
+app.use("/api/purchases", purchaseRoutes);
 
 app.get("/", (req, res) => {
   res.send("POS Inventory API is running");
