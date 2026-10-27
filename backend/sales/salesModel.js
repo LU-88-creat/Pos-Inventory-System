@@ -47,6 +47,7 @@ export async function createSale(connection, saleData) {
   return result.insertId;
 }
 
+
 export async function addSaleItem(connection, item) {
   const {
     sale_id,
@@ -54,6 +55,7 @@ export async function addSaleItem(connection, item) {
     product_name,
     quantity,
     unit_price,
+    unit_cost_at_sale,
     discount_amount = 0,
     discount_rate = 0,
     tax_rate = 0,
@@ -68,13 +70,14 @@ export async function addSaleItem(connection, item) {
       product_name,
       quantity,
       unit_price,
+      unit_cost_at_sale,
       discount_amount,
       discount_rate,
       tax_rate,
       tax_amount,
       line_total
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const [result] = await connection.execute(sql, [
@@ -83,6 +86,7 @@ export async function addSaleItem(connection, item) {
     product_name,
     quantity,
     unit_price,
+    unit_cost_at_sale ?? null,
     discount_amount,
     discount_rate,
     tax_rate,
@@ -92,6 +96,7 @@ export async function addSaleItem(connection, item) {
 
   return result.insertId;
 }
+
 
 export async function getSaleById(id) {
   const [sales] = await db.execute(
@@ -136,4 +141,61 @@ export async function getAllSales() {
   `);
 
   return rows;
+}
+
+export async function getProfitSummary() {
+  const [rows] = await db.execute(`
+    SELECT
+      COUNT(DISTINCT s.id) AS completed_sales_count,
+      COUNT(
+        DISTINCT CASE
+          WHEN si.unit_cost_at_sale IS NULL THEN s.id
+          ELSE NULL
+        END
+      ) AS sales_with_missing_cost,
+
+      COALESCE(
+        SUM(si.line_total - si.tax_amount),
+        0
+      ) AS revenue_excluding_tax,
+
+      COALESCE(
+        SUM(
+          CASE
+            WHEN si.unit_cost_at_sale IS NOT NULL
+            THEN si.quantity * si.unit_cost_at_sale
+            ELSE 0
+          END
+        ),
+        0
+      ) AS known_cost_of_goods_sold,
+
+      COALESCE(
+        SUM(
+          CASE
+            WHEN si.unit_cost_at_sale IS NOT NULL
+            THEN si.line_total - si.tax_amount
+                 - (si.quantity * si.unit_cost_at_sale)
+            ELSE 0
+          END
+        ),
+        0
+      ) AS known_gross_profit,
+
+      COALESCE(
+        SUM(
+          CASE
+            WHEN si.unit_cost_at_sale IS NULL THEN 1
+            ELSE 0
+          END
+        ),
+        0
+      ) AS items_missing_historical_cost
+
+    FROM sales s
+    INNER JOIN sale_items si ON si.sale_id = s.id
+    WHERE s.payment_status = 'completed'
+  `);
+
+  return rows[0];
 }

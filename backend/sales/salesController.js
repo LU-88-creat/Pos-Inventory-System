@@ -5,7 +5,9 @@ import {
   addSaleItem,
   getSaleById,
   getAllSales,
+  getProfitSummary,
 } from "./salesModel.js";
+
 import { fulfillSale } from "./saleFulfillment.js";
 
 
@@ -135,7 +137,7 @@ export async function addSale(req, res) {
 
     for (const item of items) {
       const [products] = await connection.execute(
-        `SELECT id, product_name, selling_price, stock_quantity,
+        `SELECT id, product_name, selling_price, cost_price, stock_quantity,
                 tax_rate, discount_rate
          FROM products
          WHERE id = ? AND is_active = TRUE
@@ -172,6 +174,7 @@ export async function addSale(req, res) {
         product_name: product.product_name,
         quantity,
         unit_price: unitPrice,
+        unit_cost_at_sale: Number(product.cost_price),
         discount_amount: itemDiscount,
         discount_rate: discountRate,
         tax_rate: taxRate,
@@ -449,5 +452,23 @@ export async function cancelSale(req, res) {
     if (connection) {
       connection.release();
     }
+  }
+}
+
+export async function profitSummary(req, res) {
+  try {
+    const summary = await getProfitSummary();
+
+    return res.status(200).json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    console.error("Profit summary error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve profit summary.",
+    });
   }
 }

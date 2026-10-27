@@ -2,6 +2,7 @@
 import {
   recordPurchasePayment,
   getPurchasePayments,
+  getAllPurchasePayments,
 } from "./purchasePaymentModel.js";
 
 const VALID_PAYMENT_METHODS = [
@@ -146,6 +147,25 @@ export async function listPurchasePayments(req, res) {
     return res.status(500).json({
       success: false,
       message: "Failed to load supplier payment history.",
+    });
+  }
+}
+
+export async function listAllPurchasePayments(req, res) {
+  try {
+    const payments = await getAllPurchasePayments();
+
+    return res.status(200).json({
+      success: true,
+      count: payments.length,
+      payments,
+    });
+  } catch (error) {
+    console.error("Error fetching all purchase payments:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve supplier payment history.",
     });
   }
 }

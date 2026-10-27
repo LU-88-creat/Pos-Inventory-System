@@ -132,3 +132,27 @@ export async function getPurchasePayments(purchaseId) {
 
   return rows;
 }
+
+export async function getAllPurchasePayments() {
+  const [rows] = await db.execute(
+    `SELECT
+       pp.id AS payment_id,
+       pp.purchase_id,
+       p.purchase_number,
+       s.supplier_name,
+       pp.amount,
+       pp.payment_method,
+       pp.reference_number,
+       pp.payment_date,
+       pp.notes,
+       pp.created_at
+     FROM purchase_payments pp
+     INNER JOIN purchases p
+       ON p.id = pp.purchase_id
+     LEFT JOIN suppliers s
+       ON s.id = p.supplier_id
+     ORDER BY pp.payment_date DESC, pp.id DESC`
+  );
+
+  return rows;
+}

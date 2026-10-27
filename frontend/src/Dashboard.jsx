@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ShoppingCart,
   LayoutDashboard,
@@ -25,10 +25,12 @@ import StockManagement from "./StockManagement";
 import Suppliers from "./Suppliers";
 import brandLogo from "./assets/brand-logo.png";
 import Purchases from "./Purchases";
+import SupplierPaymentHistory from "./SupplierPaymentHistory";
+import Overview from "./Overview";
 
 
 const modules = [
-  { label: "Overview", icon: LayoutDashboard },
+  { label: "Overview", icon: LayoutDashboard, active: true },
   { label: "Point of Sale", icon: ShoppingCart, active: true },
   { label: "Sales", icon: ReceiptText, active: true },
   { label: "Customers", icon: Users, active: true },
@@ -36,12 +38,29 @@ const modules = [
   { label: "Stock Management", icon: Boxes, active: true },
   { label: "Suppliers", icon: Truck, active: true },
   { label: "Purchases", icon: ClipboardList, active: true },
-
+  { label: "Supplier Payment History", icon: ReceiptText, active: true },
 ];
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeModule, setActiveModule] = useState("Products");
+
+    useEffect(() => {
+    const handleNavigation = (event) => {
+      const module = event.detail?.module;
+
+      if (modules.some((item) => item.label === module && item.active)) {
+        setActiveModule(module);
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("retailflow:navigate", handleNavigation);
+
+    return () => {
+      window.removeEventListener("retailflow:navigate", handleNavigation);
+    };
+  }, []);
 
   function handleModuleChange(label) {
     setActiveModule(label);
@@ -122,7 +141,7 @@ export default function Dashboard() {
                   <span className="flex-1">{label}</span>
 
                   {selected ? (
-                    <span className="size-1.5 rounded-full bg-green-200" />
+                    <span className="size-1.5 rounded-full bg-red-300" />
                   ) : !active ? (
                     <LockKeyhole size={13} />
                   ) : null}
@@ -172,7 +191,7 @@ export default function Dashboard() {
                 size={15}
                 className="hidden text-slate-400 sm:block"
               />
-              <span className="truncate font-semibold text-slate-800">
+              <span className="truncate border-l-2 border-red-500 pl-2 font-semibold text-slate-800">
                 {activeModule}
               </span>
             </div>
@@ -198,7 +217,8 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="w-full min-w-0 flex-1">
+        <main className="w-full min-w-0 flex-1 border-t-2 border-red-500/70">
+          {activeModule === "Overview" && <Overview />}
           {activeModule === "Products" && <Product />}
           {activeModule === "Customers" && <Customer />}
           {activeModule === "Point of Sale" && <POS />}
@@ -206,6 +226,7 @@ export default function Dashboard() {
           {activeModule === "Stock Management" && <StockManagement />}
           {activeModule === "Suppliers" && <Suppliers />}
           {activeModule === "Purchases" && <Purchases />}
+          {activeModule === "Supplier Payment History" && <SupplierPaymentHistory />}
         </main>
 
         <footer className="flex flex-col gap-1 border-t border-slate-200 bg-white px-4 py-4 text-[10px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">

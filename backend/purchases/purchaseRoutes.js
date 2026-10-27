@@ -12,6 +12,7 @@ import {
 import {
   addPurchasePayment,
   listPurchasePayments,
+  listAllPurchasePayments,
 } from "./purchasePaymentController.js";
 
 const router = express.Router();
@@ -26,6 +27,8 @@ router.patch("/:id/order", orderPurchaseController);
 router.patch("/:id/receive", receivePurchaseController);
 
 // Supplier payment endpoints
+router.get("/payments/history", listAllPurchasePayments);
+
 router.post("/:id/payments", addPurchasePayment);
 router.get("/:id/payments", listPurchasePayments);
 
