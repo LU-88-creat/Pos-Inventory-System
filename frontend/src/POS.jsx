@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   ShoppingCart,
@@ -80,6 +80,9 @@ export default function POS() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState("");
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const barcodeInputRef = useRef(null);
+  const barcodeSubmittingRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -92,6 +95,10 @@ export default function POS() {
   const [pendingSaleId, setPendingSaleId] = useState(null);
   const [completedReceipt, setCompletedReceipt] = useState(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
+
+  useEffect(() => {
+    barcodeInputRef.current?.focus();
+  }, []);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -231,6 +238,7 @@ export default function POS() {
     );
   }, [products, search]);
 
+  
   function addToCart(product) {
     setNotice("");
     setError("");
@@ -269,6 +277,53 @@ export default function POS() {
           quantity: 1,
         },
       ];
+    });
+
+    // Return focus to the barcode input after adding a product.
+    requestAnimationFrame(() => {
+      barcodeInputRef.current?.focus();
+    });
+  }
+
+  
+  
+  function handleBarcodeSubmit(event) {
+    event.preventDefault();
+
+    if (barcodeSubmittingRef.current) return;
+
+    const scannedBarcode = barcodeInput.trim();
+
+    if (!scannedBarcode) return;
+
+    barcodeSubmittingRef.current = true;
+
+    setError("");
+    setNotice("");
+
+    const product = products.find(
+      (item) =>
+        String(item.barcode ?? "").trim() === scannedBarcode
+    );
+
+    if (!product) {
+      setError(`No product found for barcode: ${scannedBarcode}`);
+      setBarcodeInput("");
+
+      requestAnimationFrame(() => {
+        barcodeInputRef.current?.focus();
+        barcodeSubmittingRef.current = false;
+      });
+
+      return;
+    }
+
+    addToCart(product);
+    setBarcodeInput("");
+
+    requestAnimationFrame(() => {
+      barcodeInputRef.current?.focus();
+      barcodeSubmittingRef.current = false;
     });
   }
 
@@ -639,6 +694,26 @@ export default function POS() {
 
         <div className="pos-no-print grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
           <section className="space-y-4 lg:col-span-2">
+            {/* Barcode scanner input */}
+            <form onSubmit={handleBarcodeSubmit} className="flex gap-2">
+              <input
+                type="text"
+                ref={barcodeInputRef}
+                value={barcodeInput}
+                onChange={(event) => setBarcodeInput(event.target.value)}
+                placeholder="Scan barcode and press Enter..."
+                autoComplete="off"
+                className="min-h-12 w-full rounded-xl border border-green-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+              />
+
+              <button
+                type="submit"
+                className="min-h-12 rounded-xl bg-green-600 px-5 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                Scan
+              </button>
+            </form>
+
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

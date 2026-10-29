@@ -245,6 +245,39 @@ export default function Overview() {
       icon: Wallet,
     },
   ];
+  
+  const profitMetrics = [
+    {
+      label: "Revenue Excluding Tax",
+      value: formatKES(
+        Number(profitSummary?.revenue_excluding_tax || 0)
+      ),
+      detail: "Completed sales, excluding tax",
+      icon: TrendingUp,
+    },
+    {
+      label: "Known Cost of Goods Sold",
+      value: formatKES(
+        Number(profitSummary?.known_cost_of_goods_sold || 0)
+      ),
+      detail: "Cost recorded for completed sales",
+      icon: Package,
+    },
+    {
+      label: "Known Gross Profit",
+      value: formatKES(
+        Number(profitSummary?.known_gross_profit || 0)
+      ),
+      detail: "Profit calculated from recorded historical costs",
+      icon: Wallet,
+    },
+    {
+      label: "Sales Missing Cost Data",
+      value: Number(profitSummary?.sales_with_missing_cost || 0),
+      detail: "Completed sales with incomplete historical costs",
+      icon: ShoppingBag,
+    },
+  ];
 
   if (loading) {
     return (
@@ -343,6 +376,56 @@ export default function Overview() {
           );
         })}
       </div>
+      
+      {/* Profit & Sales Insights */}
+      <section className="mb-6">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Profit &amp; Sales Insights
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Financial performance based on recorded historical costs.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {profitMetrics.map((metric) => {
+            const Icon = metric.icon;
+
+            return (
+              <div
+                key={metric.label}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-500">
+                    {metric.label}
+                  </p>
+                  <Icon size={21} className="text-slate-500" />
+                </div>
+
+                <p className="mt-3 break-words text-2xl font-bold text-slate-900">
+                  {metric.value}
+                </p>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  {metric.detail}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {Number(profitSummary?.sales_with_missing_cost || 0) > 0 && (
+          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <strong>Profit data is incomplete.</strong>{" "}
+            Some completed sales do not have historical product costs recorded.
+            Known gross profit may therefore be lower than actual gross profit.
+            Review the missing cost data before relying on these figures.
+          </div>
+        )}
+      </section>
+
       
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
