@@ -9,7 +9,16 @@ import {
   changeCustomerStatus,
 } from "./customerController.js";
 
+import {
+  authenticateToken,
+  authorizeRoles,
+} from "../middleware/authMiddleware.js";
+
 const router = express.Router();
+
+// Require login and administrator/cashier role
+router.use(authenticateToken);
+router.use(authorizeRoles("administrator", "cashier"));
 
 // Get all active customers; supports ?search=
 router.get("/", listCustomers);

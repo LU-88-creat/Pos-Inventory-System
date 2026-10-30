@@ -6,7 +6,16 @@ import {
   recordStockMovement,
 } from "./stockController.js";
 
+import {
+  authenticateToken,
+  authorizeRoles,
+} from "../middleware/authMiddleware.js";
+
 const router = express.Router();
+
+// Require login and administrator/storekeeper role.
+router.use(authenticateToken);
+router.use(authorizeRoles("administrator", "storekeeper"));
 
 // View stock movement history.
 router.get("/movements", listStockMovements);

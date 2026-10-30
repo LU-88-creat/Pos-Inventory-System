@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 import express from "express";
 import cors from "cors";
 import db from "./config/db.js";
@@ -7,12 +9,16 @@ import salesRoutes from "./sales/salesRoutes.js";
 import stockRoutes from "./stock/stockRoutes.js";
 import supplierRoutes from "./suppliers/supplierRoutes.js";
 import purchaseRoutes from "./purchases/purchaseRoutes.js";
+import authRoutes from "./auth/authRoutes.js";
+import userRoutes from "./users/userRoutes.js";
 
 
 const app = express();
 
 app.use(cors({ origin: ["http://localhost:5173", "http://localhost:5174"] }));
 app.use(express.json());
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/products", productRoutes);

@@ -15,24 +15,65 @@ import {
   listAllPurchasePayments,
 } from "./purchasePaymentController.js";
 
+import {
+  authenticateToken,
+  authorizeRoles,
+} from "../middleware/authMiddleware.js";
+
 const router = express.Router();
 
-router.get("/", listPurchases);
-router.post("/", addPurchase);
+// All purchase endpoints require authentication.
+router.use(authenticateToken);
 
-// Order a draft purchase
-router.patch("/:id/order", orderPurchaseController);
+// Purchase management: administrator and storekeeper.
+router.get(
+  "/",
+  authorizeRoles("administrator", "storekeeper"),
+  listPurchases
+);
 
-// Receive goods for an ordered purchase
-router.patch("/:id/receive", receivePurchaseController);
+router.post(
+  "/",
+  authorizeRoles("administrator", "storekeeper"),
+  addPurchase
+);
 
-// Supplier payment endpoints
-router.get("/payments/history", listAllPurchasePayments);
+router.patch(
+  "/:id/order",
+  authorizeRoles("administrator", "storekeeper"),
+  orderPurchaseController
+);
 
-router.post("/:id/payments", addPurchasePayment);
-router.get("/:id/payments", listPurchasePayments);
+router.patch(
+  "/:id/receive",
+  authorizeRoles("administrator", "storekeeper"),
+  receivePurchaseController
+);
 
-// Get purchase details
-router.get("/:id", getPurchase);
+// Supplier payment endpoints: administrator only.
+router.get(
+  "/payments/history",
+  authorizeRoles("administrator"),
+  listAllPurchasePayments
+);
+
+router.post(
+  "/:id/payments",
+  authorizeRoles("administrator"),
+  addPurchasePayment
+);
+
+router.get(
+  "/:id/payments",
+  authorizeRoles("administrator"),
+  listPurchasePayments
+);
+
+// Purchase details: administrator and storekeeper.
+router.get(
+  "/:id",
+  authorizeRoles("administrator", "storekeeper"),
+  getPurchase
+);
 
 export default router;

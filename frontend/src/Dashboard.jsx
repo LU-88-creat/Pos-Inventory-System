@@ -15,6 +15,7 @@ import {
   Settings,
   LockKeyhole,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 
 import Product from "./Product";
@@ -27,6 +28,7 @@ import brandLogo from "./assets/brand-logo.png";
 import Purchases from "./Purchases";
 import SupplierPaymentHistory from "./SupplierPaymentHistory";
 import Overview from "./Overview";
+import SettingsPage from "./Settings";
 
 
 const modules = [
@@ -39,9 +41,10 @@ const modules = [
   { label: "Suppliers", icon: Truck, active: true },
   { label: "Purchases", icon: ClipboardList, active: true },
   { label: "Supplier Payment History", icon: ReceiptText, active: true },
+  { label: "Settings", icon: Settings, active: true },
 ];
 
-export default function Dashboard() {
+export default function Dashboard({ user, token, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeModule, setActiveModule] = useState("Products");
 
@@ -211,8 +214,29 @@ export default function Dashboard() {
               <Bell size={19} />
             </button>
 
-            <div className="grid size-9 place-items-center rounded-full bg-purple-100 text-sm font-bold text-purple-800">
-              A
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="hidden text-right sm:block">
+                <p className="text-xs font-semibold text-slate-800">
+                  {user?.full_name || user?.username}
+                </p>
+
+                <p className="text-[10px] capitalize text-slate-500">
+                  {user?.role}
+                </p>
+              </div>
+
+              <div className="grid size-9 place-items-center rounded-full bg-purple-100 text-sm font-bold text-purple-800">
+                {user?.full_name?.charAt(0)?.toUpperCase() || "U"}
+              </div>
+
+              <button
+                onClick={onLogout}
+                title="Sign out"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <LogOut size={15} />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
             </div>
           </div>
         </header>
@@ -227,6 +251,7 @@ export default function Dashboard() {
           {activeModule === "Suppliers" && <Suppliers />}
           {activeModule === "Purchases" && <Purchases />}
           {activeModule === "Supplier Payment History" && <SupplierPaymentHistory />}
+          {activeModule === "Settings" && <SettingsPage token={token} />}
         </main>
 
         <footer className="flex flex-col gap-1 border-t border-slate-200 bg-white px-4 py-4 text-[10px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">

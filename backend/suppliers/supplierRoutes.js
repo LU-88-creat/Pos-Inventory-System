@@ -9,7 +9,16 @@ import {
   changeSupplierStatus,
 } from "./supplierController.js";
 
+import {
+  authenticateToken,
+  authorizeRoles,
+} from "../middleware/authMiddleware.js";
+
 const router = express.Router();
+
+// Require login and administrator/storekeeper role.
+router.use(authenticateToken);
+router.use(authorizeRoles("administrator", "storekeeper"));
 
 // List and search suppliers
 router.get("/", listSuppliers);

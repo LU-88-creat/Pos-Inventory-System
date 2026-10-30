@@ -12,7 +12,16 @@ import {
   createCategory,
 } from "../controllers/productController.js";
 
+import {
+  authenticateToken,
+  authorizeRoles,
+} from "../../middleware/authMiddleware.js";
+
 const router = express.Router();
+
+// Require login and administrator/storekeeper role
+router.use(authenticateToken);
+router.use(authorizeRoles("administrator", "storekeeper"));
 
 // Categories
 router.get("/categories", listCategories);
