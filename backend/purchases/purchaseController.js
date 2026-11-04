@@ -7,6 +7,8 @@ import {
   receivePurchase,
 } from "./purchaseModel.js";
 
+import { createActivityLog } from "../activityLogs/activityLogModel.js";
+
 const VALID_STATUSES = [
   "all",
   "draft",
@@ -186,6 +188,21 @@ export async function addPurchase(req, res) {
       notes,
       items,
     });
+
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "PURCHASE_CREATED",
+        entity_type: "purchase",
+        entity_id: purchase.id,
+        description: `${req.user.full_name} created draft purchase ${purchase_number.trim()} for supplier #${supplier_id}.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      console.error("Purchase creation activity logging error:", logError.message);
+    }
 
     return res.status(201).json({
       success: true,

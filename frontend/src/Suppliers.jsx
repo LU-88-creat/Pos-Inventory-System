@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "./api";
 import {
   Plus,
   Search,
@@ -60,7 +61,7 @@ export default function Suppliers() {
 
     try {
       const params = new URLSearchParams({ status, search });
-      const response = await fetch(`${API_URL}?${params.toString()}`);
+      const response = await apiFetch(`${API_URL}?${params.toString()}`);
       const result = await response.json();
 
       if (!response.ok || !result.success) {
@@ -128,7 +129,7 @@ export default function Suppliers() {
     };
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         editingId ? `${API_URL}/${editingId}` : API_URL,
         {
           method: editingId ? "PUT" : "POST",
@@ -174,7 +175,7 @@ export default function Suppliers() {
     setMessage("");
 
     try {
-      const response = await fetch(`${API_URL}/${supplier.id}/status`, {
+      const response = await apiFetch(`${API_URL}/${supplier.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active: nextStatus }),

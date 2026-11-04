@@ -13,6 +13,8 @@ import {
   getAllCategories,
 } from "../models/categoryModel.js";
 
+import { createActivityLog } from "../../activityLogs/activityLogModel.js";
+
 const allowedUnits = [
   "piece",
   "kg",
@@ -216,6 +218,23 @@ export async function addProduct(req, res) {
     }
 
     const product = await createProduct(normalizeProduct(req.body));
+    
+    // Record product creation.
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "PRODUCT_CREATED",
+        entity_type: "product",
+        entity_id: product.id,
+        description: `${req.user.full_name} created product ${product.product_name} (SKU: ${product.sku}).`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Logging failure must not prevent product creation.
+      console.error("Product creation activity logging error:", logError.message);
+    }
 
     return res.status(201).json({
       success: true,
@@ -261,6 +280,23 @@ export async function editProduct(req, res) {
       normalizeProduct(req.body)
     );
 
+    // Record product update.
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "PRODUCT_UPDATED",
+        entity_type: "product",
+        entity_id: product.id,
+        description: `${req.user.full_name} updated product ${product.product_name} (SKU: ${product.sku}).`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Logging failure must not prevent product updates.
+      console.error("Product update activity logging error:", logError.message);
+    }
+
     return res.status(200).json({
       success: true,
       message: "Product updated successfully.",
@@ -300,6 +336,25 @@ export async function changeProductStatus(req, res) {
     }
 
     const product = await updateProductStatus(id, is_active);
+
+    // Record product status change.
+    const newStatus = is_active ? "active" : "inactive";
+
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "PRODUCT_STATUS_SET",
+        entity_type: "product",
+        entity_id: product.id,
+        description: `${req.user.full_name} set product ${product.product_name} (SKU: ${product.sku}) to ${newStatus}.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Logging failure must not prevent the status change.
+      console.error("Product status activity logging error:", logError.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -382,6 +437,23 @@ export async function removeProduct(req, res) {
         success: false,
         message: "Product not found.",
       });
+    }
+
+    // Record product deactivation through the delete operation.
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "PRODUCT_DEACTIVATED",
+        entity_type: "product",
+        entity_id: product.id,
+        description: `${req.user.full_name} deactivated product ${product.product_name} (SKU: ${product.sku}) through the delete operation.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Logging failure must not prevent product deactivation.
+      console.error("Product deactivation activity logging error:", logError.message);
     }
 
     return res.status(200).json({

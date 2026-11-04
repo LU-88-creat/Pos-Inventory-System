@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "./api";
 import {
   RefreshCw,
   Search,
@@ -43,7 +44,7 @@ export default function SupplierPaymentHistory() {
     setError("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE}/purchases/payments/history`
       );
       const data = await response.json();

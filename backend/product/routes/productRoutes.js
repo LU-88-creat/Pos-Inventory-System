@@ -19,28 +19,61 @@ import {
 
 const router = express.Router();
 
-// Require login and administrator/storekeeper role
+// All product endpoints require login.
 router.use(authenticateToken);
-router.use(authorizeRoles("administrator", "storekeeper"));
 
-// Categories
-router.get("/categories", listCategories);
-router.post("/categories", createCategory);
+// Read products: administrator, storekeeper and cashier.
+router.get(
+  "/",
+  authorizeRoles("administrator", "storekeeper", "cashier"),
+  listProducts
+);
 
-// Read products
-router.get("/", listProducts);
-router.get("/:id", getProduct);
+// Category management: administrator and storekeeper.
+router.get(
+  "/categories",
+  authorizeRoles("administrator", "storekeeper"),
+  listCategories
+);
 
-// Create product
-router.post("/", addProduct);
+router.get(
+  "/:id",
+  authorizeRoles("administrator", "storekeeper", "cashier"),
+  getProduct
+);
 
-// Update product
-router.put("/:id", editProduct);
+router.post(
+  "/categories",
+  authorizeRoles("administrator", "storekeeper"),
+  createCategory
+);
 
-// Activate or deactivate product
-router.patch("/:id/status", changeProductStatus);
+// Create product.
+router.post(
+  "/",
+  authorizeRoles("administrator", "storekeeper"),
+  addProduct
+);
 
-// Delete product (soft delete)
-router.delete("/:id", removeProduct);
+// Update product.
+router.put(
+  "/:id",
+  authorizeRoles("administrator", "storekeeper"),
+  editProduct
+);
+
+// Activate or deactivate product.
+router.patch(
+  "/:id/status",
+  authorizeRoles("administrator", "storekeeper"),
+  changeProductStatus
+);
+
+// Delete product (soft delete).
+router.delete(
+  "/:id",
+  authorizeRoles("administrator", "storekeeper"),
+  removeProduct
+);
 
 export default router;

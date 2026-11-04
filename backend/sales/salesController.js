@@ -10,6 +10,8 @@ import {
 
 import { fulfillSale } from "./saleFulfillment.js";
 
+import { createActivityLog } from "../activityLogs/activityLogModel.js";
+
 
 export async function listSales(req, res) {
   try {
@@ -328,6 +330,23 @@ export async function completeSale(req, res) {
 
     await connection.commit();
 
+    // Record successful sale completion.
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "SALE_COMPLETED",
+        entity_type: "sale",
+        entity_id: id,
+        description: `${req.user.full_name} completed ${sale.payment_method} sale #${id}.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Audit logging failure must not affect the completed sale.
+      console.error("Sale completion activity logging error:", logError.message);
+    }
+
     return res.status(200).json({
       success: true,
       message: `${sale.payment_method === "mpesa" ? "M-Pesa" : "Cash"} sale completed and stock updated.`,
@@ -428,6 +447,23 @@ export async function cancelSale(req, res) {
     );
 
     await connection.commit();
+
+    // Record successful sale cancellation.
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "SALE_CANCELLED",
+        entity_type: "sale",
+        entity_id: id,
+        description: `${req.user.full_name} cancelled pending sale #${id}.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Audit logging failure must not affect the cancelled sale.
+      console.error("Sale cancellation activity logging error:", logError.message);
+    }
 
     return res.status(200).json({
       success: true,

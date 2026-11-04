@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { apiFetch } from "./api";
 import {
   Search,
   ShoppingCart,
@@ -105,7 +106,7 @@ export default function POS() {
     setError("");
 
     try {
-      const response = await fetch(PRODUCT_API);
+      const response = await apiFetch(PRODUCT_API);
       const result = await readResponse(response);
       const rows = Array.isArray(result)
         ? result
@@ -133,7 +134,7 @@ export default function POS() {
       setError("");
 
       try {
-        const response = await fetch(PRODUCT_API);
+        const response = await apiFetch(PRODUCT_API);
         const result = await readResponse(response);
         const rows = Array.isArray(result)
           ? result
@@ -176,7 +177,7 @@ export default function POS() {
 
     async function checkPaymentStatus() {
       try {
-        const response = await fetch(`${SALES_API}/${pendingSaleId}/mpesa-status`);
+        const response = await apiFetch(`${SALES_API}/${pendingSaleId}/mpesa-status`);
         const result = await readResponse(response);
         if (cancelled) return;
 
@@ -184,9 +185,21 @@ export default function POS() {
         const attempt = result?.data?.attempt;
         if (attempt?.status === "failed") {
           setMpesaStatusMessage(
-            attempt.result_description || "The M-Pesa payment was not completed. You can send a new prompt."
+            attempt.result_description ||
+              "The M-Pesa payment was not completed. You can send a new prompt."
           );
           setStkPushInitiated(false);
+          if (sale?.payment_status === "cancelled") {
+            setPendingSaleId(null);
+            setCheckoutOpen(false);
+            setPaymentMethod("cash");
+            setMpesaPhone("");
+            setMpesaStatusMessage("");
+            setCart([]);
+            setNotice(
+              `M-Pesa payment was cancelled. Sale #${sale.id} is cancelled; you can start a new sale.`
+            );
+          }
           return;
         }
 
@@ -367,8 +380,69 @@ export default function POS() {
   const taxAmount = Number(cartTotals.tax.toFixed(2));
   const total = Number((subtotal - discountAmount + taxAmount).toFixed(2));
 
+  async function cancelCheckout() {
+    if (checkoutLoading) return;
+
+    setCheckoutLoading(true);
+    setError("");
+
+    try {
+      let saleId = pendingSaleId;
+
+      // Create a pending sale if checkout has not created one yet.
+      if (!saleId) {
+        const receiptNumber = `POS-CANCEL-${Date.now()}`;
+
+        const response = await apiFetch(SALES_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            receipt_number: receiptNumber,
+            subtotal,
+            discount_amount: discountAmount,
+            tax_amount: taxAmount,
+            total_amount: total,
+            payment_method: paymentMethod,
+            items: cart.map((item) => ({
+              product_id: item.id,
+              quantity: item.quantity,
+            })),
+          }),
+        });
+
+        const created = await readResponse(response);
+        saleId = getSaleId(created);
+
+        if (!saleId) {
+          throw new Error("Could not identify the sale created for cancellation.");
+        }
+      }
+
+      // Cancel the pending sale through the existing backend route.
+      const response = await apiFetch(`${SALES_API}/${saleId}/cancel`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      await readResponse(response);
+
+      setPendingSaleId(null);
+      setStkPushInitiated(false);
+      setMpesaStatusMessage("");
+      setCheckoutOpen(false);
+      setPaymentMethod("cash");
+      setMpesaPhone("");
+
+      setNotice(`Sale #${saleId} was cancelled successfully.`);
+    } catch (err) {
+      setError(err.message || "Could not cancel the sale.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
+
   async function completeSale(saleId) {
-    const response = await fetch(`${SALES_API}/${saleId}/complete-payment`, {
+    const response = await apiFetch(`${SALES_API}/${saleId}/complete-payment`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
     });
@@ -405,7 +479,7 @@ export default function POS() {
       // retry that sale instead of creating a duplicate.
       if (!saleId) {
         const receiptNumber = `POS-${Date.now()}`;
-        const createResponse = await fetch(SALES_API, {
+        const createResponse = await apiFetch(SALES_API, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -435,7 +509,7 @@ export default function POS() {
       }
 
       if (paymentMethod === "mpesa") {
-        const stkResponse = await fetch(`${SALES_API}/${saleId}/mpesa/stk-push`, {
+        const stkResponse = await apiFetch(`${SALES_API}/${saleId}/mpesa/stk-push`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phone_number: mpesaPhone }),
@@ -453,7 +527,7 @@ export default function POS() {
       } catch (completionError) {
         // Confirm whether the sale was completed despite a lost/failed response.
         try {
-          const verifyResponse = await fetch(`${SALES_API}/${saleId}`);
+          const verifyResponse = await apiFetch(`${SALES_API}/${saleId}`);
           const verified = await readResponse(verifyResponse);
           const sale = verified?.data?.sale ?? verified?.data ?? verified?.sale ?? verified;
           if (String(sale?.payment_status ?? "").toLowerCase() !== "completed") {
@@ -506,7 +580,7 @@ export default function POS() {
       // Load the authoritative receipt values from the sales API when available.
       setReceiptLoading(true);
       try {
-        const receiptResponse = await fetch(`${SALES_API}/${saleId}`);
+        const receiptResponse = await apiFetch(`${SALES_API}/${saleId}`);
         const receiptResult = await readResponse(receiptResponse);
         const sale = receiptResult?.data?.sale
           ?? receiptResult?.data
@@ -592,7 +666,10 @@ export default function POS() {
         </div>
 
         {notice && (
-          <div className="pos-no-print" role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+          <div
+            className="pos-no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800"
+            role="status"
+          >
             <span className="flex items-center gap-2"><CheckCircle2 size={18} />{notice}</span>
             {completedReceipt && (
               <button type="button" onClick={startNewSale} className="rounded-lg bg-green-700 px-3 py-2 font-semibold text-white hover:bg-green-800">
@@ -603,7 +680,10 @@ export default function POS() {
         )}
 
         {error && (
-          <div className="pos-no-print" role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div
+            className="pos-no-print flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            role="alert"
+          >
             <AlertCircle size={18} className="mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -620,7 +700,7 @@ export default function POS() {
           <section id="pos-receipt" className="my-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
             <div className="border-b border-dashed border-slate-300 pb-5 text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Sales receipt</p>
-              <h2 id="receipt-title" className="mt-2 text-2xl font-extrabold text-slate-900">Retail POS</h2>
+              <h2 id="receipt-title" className="mt-2 text-2xl font-extrabold text-slate-900">7 to 7 Supermarket</h2>
               <p className="mt-1 text-sm text-slate-500">Thank you for shopping with us.</p>
             </div>
 
@@ -982,8 +1062,13 @@ export default function POS() {
               </p>
             )}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button type="button" onClick={() => setCheckoutOpen(false)} disabled={checkoutLoading} className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                Cancel
+              <button
+                type="button"
+                onClick={cancelCheckout}
+                disabled={checkoutLoading}
+                className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {checkoutLoading ? "Cancelling..." : "Cancel"}
               </button>
               <button type="button" onClick={handleCheckout} disabled={checkoutLoading || stkPushInitiated} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-60">
                 {checkoutLoading || stkPushInitiated

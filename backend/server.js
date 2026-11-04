@@ -11,6 +11,8 @@ import supplierRoutes from "./suppliers/supplierRoutes.js";
 import purchaseRoutes from "./purchases/purchaseRoutes.js";
 import authRoutes from "./auth/authRoutes.js";
 import userRoutes from "./users/userRoutes.js";
+import businessSettingsRoutes from "./settings/businessSettingsRoutes.js";
+import activityLogRoutes from "./activityLogs/activityLogRoutes.js";
 
 
 const app = express();
@@ -25,6 +27,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/stock", stockRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchases", purchaseRoutes);
+app.use("/api/settings", businessSettingsRoutes);
+app.use("/api/activity-logs", activityLogRoutes);
 
 app.get("/", (req, res) => {
   res.send("POS Inventory API is running");

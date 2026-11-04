@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "./api";
 import {
   TrendingUp,
   ShoppingBag,
@@ -37,7 +38,7 @@ const getLocalDateKey = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-export default function Overview() {
+export default function Overview({ user }) {
   const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -46,64 +47,83 @@ export default function Overview() {
   const [error, setError] = useState("");
   const [salesPeriod, setSalesPeriod] = useState("7");
 
+  
   async function loadOverview(showLoading = true) {
-  if (showLoading) {
-    setLoading(true);
-  }
+    if (showLoading) {
+      setLoading(true);
+    }
 
-  setError("");
+    setError("");
 
     try {
+      const role = user?.role;
+
+      const canViewSales = ["administrator", "cashier"].includes(role);
+      const canViewPurchases = ["administrator", "storekeeper"].includes(role);
+      const canViewProfit = role === "administrator";
+
       const [
         salesResponse,
         productsResponse,
         purchasesResponse,
         profitResponse,
       ] = await Promise.all([
-        fetch(`${API_BASE}/sales`),
-        fetch(`${API_BASE}/products`),
-        fetch(`${API_BASE}/purchases`),
-        fetch(`${API_BASE}/sales/profit-summary`),
+        canViewSales ? apiFetch(`${API_BASE}/sales`) : Promise.resolve(null),
+        apiFetch(`${API_BASE}/products`),
+        canViewPurchases
+          ? apiFetch(`${API_BASE}/purchases`)
+          : Promise.resolve(null),
+        canViewProfit
+          ? apiFetch(`${API_BASE}/sales/profit-summary`)
+          : Promise.resolve(null),
       ]);
 
-      if (
-        !salesResponse.ok ||
-        !productsResponse.ok ||
-        !purchasesResponse.ok ||
-        !profitResponse.ok
-      ) {
+      const responses = [
+        salesResponse,
+        productsResponse,
+        purchasesResponse,
+        profitResponse,
+      ].filter(Boolean);
+
+      if (responses.some((response) => !response.ok)) {
         throw new Error("One or more dashboard requests failed.");
       }
 
-      const [salesResult, productsResult, purchasesResult, profitResult] =
-        await Promise.all([
-          salesResponse.json(),
-          productsResponse.json(),
-          purchasesResponse.json(),
-          profitResponse.json(),
-        ]);
+      const [
+        salesResult,
+        productsResult,
+        purchasesResult,
+        profitResult,
+      ] = await Promise.all([
+        salesResponse ? salesResponse.json() : Promise.resolve(null),
+        productsResponse.json(),
+        purchasesResponse ? purchasesResponse.json() : Promise.resolve(null),
+        profitResponse ? profitResponse.json() : Promise.resolve(null),
+      ]);
 
       if (
-        !salesResult.success ||
         !productsResult.success ||
-        !purchasesResult.success ||
-        !profitResult.success
+        (salesResult && !salesResult.success) ||
+        (purchasesResult && !purchasesResult.success) ||
+        (profitResult && !profitResult.success)
       ) {
         throw new Error("The server returned an unsuccessful response.");
       }
 
-      setSales(salesResult.data || []);
+      setSales(salesResult?.data || []);
       setProducts(productsResult.data || []);
-      setPurchases(purchasesResult.data || []);
-      setProfitSummary(profitResult.data || null);
+      setPurchases(purchasesResult?.data || []);
+      setProfitSummary(profitResult?.data || null);
+
     } catch (err) {
       setError(err.message || "Could not load dashboard data.");
     } finally {
-        if (showLoading) {
-          setLoading(false);
-        }
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }
+
 
   useEffect(() => {
   // Load dashboard data when the page opens.
@@ -245,6 +265,14 @@ export default function Overview() {
       icon: Wallet,
     },
   ];
+    const visibleMetrics =
+    user?.role === "administrator"
+      ? metrics
+      : user?.role === "cashier"
+        ? metrics.filter((metric) =>
+            ["Today's Sales", "Completed Sales"].includes(metric.label)
+          )
+        : [];
   
   const profitMetrics = [
     {
@@ -347,7 +375,7 @@ export default function Overview() {
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => {
+        {visibleMetrics.map((metric) => {
           const Icon = metric.icon;
 
           return (
@@ -378,6 +406,7 @@ export default function Overview() {
       </div>
       
       {/* Profit & Sales Insights */}
+      {user?.role === "administrator" && (
       <section className="mb-6">
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-slate-800">
@@ -425,8 +454,9 @@ export default function Overview() {
           </div>
         )}
       </section>
+      )}
 
-      
+      {user?.role === "administrator" && (
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -498,6 +528,7 @@ export default function Overview() {
           </ResponsiveContainer>
         </div>
       </section>
+      )}
       
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

@@ -1,5 +1,14 @@
 # Backend setup
 
+## Password reset email
+
+1. Run `auth/migrations/create_password_reset_tokens.sql` against the configured database.
+2. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and optionally `SMTP_FROM` in the backend `.env`.
+3. Set `FRONTEND_URL` to the public frontend origin used in password reset links (for example, `http://localhost:5173` in local development).
+4. Restart the backend. Reset links are single-use and expire after one hour. Accounts must have an email address set.
+
+The same SMTP settings are used to email login credentials when an administrator creates an employee account. A valid employee email address is required for new accounts. If SMTP is missing, account creation is rejected; if delivery fails after the account is created, the administrator is notified so credentials can be shared securely.
+
 ## Daraja sandbox STK Push
 
 1. Run `sales/migrations/create_mpesa_transactions.sql` against the database configured in this backend.

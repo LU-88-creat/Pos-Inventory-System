@@ -8,6 +8,8 @@ import {
   getStockMovements,
 } from "./stockModel.js";
 
+import { createActivityLog } from "../activityLogs/activityLogModel.js";
+
 const VALID_MOVEMENTS = {
   stock_in: "stock_in",
   stock_out: "stock_out",
@@ -162,6 +164,23 @@ export async function recordStockMovement(req, res) {
     });
 
     await connection.commit();
+
+    // Record the successful stock movement.
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "STOCK_MOVEMENT_RECORDED",
+        entity_type: "product",
+        entity_id: productId,
+        description: `${req.user.full_name} recorded ${movement_type} for ${product.product_name} (SKU: ${product.sku}). Quantity: ${quantity}. Previous stock: ${previousStock}. New stock: ${newStock}.${notes?.trim() ? ` Notes: ${notes.trim()}` : ""}`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Audit logging failure must not undo a committed stock movement.
+      console.error("Stock movement activity logging error:", logError.message);
+    }
 
     return res.status(201).json({
       success: true,

@@ -5,7 +5,16 @@ import {
   createUser,
   getAllUsers,
   updateUserStatus,
+  getUserPasswordHash,
+  updateUserPassword,
 } from "./userModel.js";
+
+import { createActivityLog } from "../activityLogs/activityLogModel.js";
+import {
+  escapeHtml,
+  getMailFrom,
+  getMailTransport,
+} from "../config/mailer.js";
 
 // List all employee accounts.
 export async function listUsers(req, res) {
@@ -85,6 +94,13 @@ export async function addUser(req, res) {
 
     const normalizedEmail = email?.trim().toLowerCase() || null;
 
+    if (!normalizedEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "An employee email address is required to send login credentials.",
+      });
+    }
+
     if (
       normalizedEmail &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
@@ -92,6 +108,16 @@ export async function addUser(req, res) {
       return res.status(400).json({
         success: false,
         message: "Please provide a valid email address.",
+      });
+    }
+
+    const transporter = getMailTransport();
+
+    if (!transporter) {
+      console.error("Employee credential SMTP settings are not configured.");
+      return res.status(503).json({
+        success: false,
+        message: "Email delivery is not configured. Set up SMTP before creating employee accounts.",
       });
     }
 
@@ -105,9 +131,49 @@ export async function addUser(req, res) {
       role,
     });
 
+    let credentialsEmailSent = true;
+
+    try {
+      const loginUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      const safeName = escapeHtml(user.full_name);
+      const safeUsername = escapeHtml(user.username);
+      const safePassword = escapeHtml(password);
+
+      await transporter.sendMail({
+        from: getMailFrom(),
+        to: user.email,
+        subject: "Your POS employee login credentials",
+        text: `Hello ${user.full_name},\n\nYour employee account has been created.\nUsername: ${user.username}\nPassword: ${password}\n\nSign in here: ${loginUrl}\nFor your security, change your password after signing in.`,
+        html: `<p>Hello ${safeName},</p><p>Your employee account has been created.</p><p><strong>Username:</strong> ${safeUsername}<br><strong>Password:</strong> ${safePassword}</p><p><a href="${escapeHtml(loginUrl)}">Sign in to your account</a></p><p>For your security, change your password after signing in.</p>`,
+      });
+    } catch (mailError) {
+      credentialsEmailSent = false;
+      console.error("Employee credential email error:", mailError.message);
+    }
+
+    // Record employee account creation.
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "EMPLOYEE_CREATED",
+        entity_type: "user",
+        entity_id: user.id,
+        description: `${req.user.full_name} created employee account for ${user.full_name} (${user.username}) with role ${user.role}.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Logging failure must not prevent employee creation.
+      console.error("Employee creation activity logging error:", logError.message);
+    }
+
     return res.status(201).json({
       success: true,
-      message: "Employee account created successfully.",
+      message: credentialsEmailSent
+        ? "Employee account created and login credentials emailed successfully."
+        : "Employee account was created, but the login credentials email could not be sent. Share the credentials securely with the employee.",
+      credentialsEmailSent,
       user,
     });
   } catch (error) {
@@ -166,6 +232,25 @@ export async function changeUserStatus(req, res) {
       });
     }
 
+    // Record the employee status change.
+    const newStatus = Number(is_active) === 1 ? "active" : "inactive";
+
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "EMPLOYEE_STATUS_SET",
+        entity_type: "user",
+        entity_id: user.id,
+        description: `${req.user.full_name} set employee account for ${user.full_name} (${user.username}) to ${newStatus}.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      // Logging failure must not prevent the status change.
+      console.error("Employee status activity logging error:", logError.message);
+    }
+
     return res.status(200).json({
       success: true,
       message: "Employee status updated successfully.",
@@ -177,6 +262,87 @@ export async function changeUserStatus(req, res) {
     return res.status(500).json({
       success: false,
       message: "Unable to update employee status.",
+    });
+  }
+}
+
+// Allow an employee to change their own password.
+export async function changePassword(req, res) {
+  try {
+    const { current_password, new_password } = req.body;
+    const userId = req.user.id;
+
+    if (
+      typeof current_password !== "string" ||
+      typeof new_password !== "string" ||
+      !current_password ||
+      !new_password
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required.",
+      });
+    }
+
+    if (new_password.length < 12) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must contain at least 12 characters.",
+      });
+    }
+
+    if (current_password === new_password) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from your current password.",
+      });
+    }
+
+    const user = await getUserPasswordHash(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee account not found.",
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      current_password,
+      user.password_hash
+    );
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect.",
+      });
+    }
+
+    const newPasswordHash = await bcrypt.hash(new_password, 12);
+
+    const updated = await updateUserPassword(
+      userId,
+      newPasswordHash
+    );
+
+    if (!updated) {
+      return res.status(500).json({
+        success: false,
+        message: "Unable to update password.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully. Please log in again.",
+    });
+  } catch (error) {
+    console.error("Change password error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to change password.",
     });
   }
 }

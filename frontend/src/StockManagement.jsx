@@ -22,7 +22,44 @@ function formatQuantity(value) {
   });
 }
 
-export default function StockManagement() {
+async function fetchStockData(token) {
+  const [productsResponse, movementsResponse] = await Promise.all([
+    fetch(`${API_BASE}/products`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+    fetch(`${API_BASE}/stock/movements?limit=100`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  ]);
+
+  const productsResult = await productsResponse.json();
+  const movementsResult = await movementsResponse.json();
+
+  if (!productsResponse.ok || productsResult.success === false) {
+    throw new Error(productsResult.message || "Failed to load products.");
+  }
+
+  if (!movementsResponse.ok || movementsResult.success === false) {
+    throw new Error(
+      movementsResult.message || "Failed to load stock movements."
+    );
+  }
+
+  const productRows = Array.isArray(productsResult)
+    ? productsResult
+    : productsResult.data;
+
+  if (!Array.isArray(productRows)) {
+    throw new Error("Unexpected products API response format.");
+  }
+
+  return {
+    products: productRows,
+    movements: movementsResult.data ?? [],
+  };
+}
+
+export default function StockManagement({ token }) {
   const [products, setProducts] = useState([]);
   const [movements, setMovements] = useState([]);
   const [search, setSearch] = useState("");
@@ -36,41 +73,14 @@ export default function StockManagement() {
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
 
-  async function loadStockData() {
+  async function loadStockData(authToken) {
     setLoading(true);
     setError("");
 
     try {
-      const [productsResponse, movementsResponse] = await Promise.all([
-        fetch(`${API_BASE}/products`),
-        fetch(`${API_BASE}/stock/movements?limit=100`),
-      ]);
-
-      const productsResult = await productsResponse.json();
-      const movementsResult = await movementsResponse.json();
-
-      if (!productsResponse.ok || productsResult.success === false) {
-        throw new Error(
-          productsResult.message || "Failed to load products."
-        );
-      }
-
-      if (!movementsResponse.ok || movementsResult.success === false) {
-        throw new Error(
-          movementsResult.message || "Failed to load stock movements."
-        );
-      }
-
-      const productRows = Array.isArray(productsResult)
-        ? productsResult
-        : productsResult.data;
-
-      if (!Array.isArray(productRows)) {
-        throw new Error("Unexpected products API response format.");
-      }
-
-      setProducts(productRows);
-      setMovements(movementsResult.data ?? []);
+      const stockData = await fetchStockData(authToken);
+      setProducts(stockData.products);
+      setMovements(stockData.movements);
     } catch (err) {
       setError(err.message || "Unable to connect to the stock API.");
     } finally {
@@ -116,6 +126,7 @@ export default function StockManagement() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           product_id: Number(selectedProduct),
@@ -141,7 +152,7 @@ export default function StockManagement() {
       setQuantity("");
       setStockNotes("");
 
-      await loadStockData();
+      await loadStockData(token);
       setStockAction(null);
     } catch (error) {
       setFormError(error.message || "Something went wrong.");
@@ -151,8 +162,33 @@ export default function StockManagement() {
   }
 
   useEffect(() => {
-    loadStockData();
-  }, []);
+    let cancelled = false;
+
+    async function loadInitialStockData() {
+      try {
+        const stockData = await fetchStockData(token);
+
+        if (!cancelled) {
+          setProducts(stockData.products);
+          setMovements(stockData.movements);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || "Unable to connect to the stock API.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadInitialStockData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();

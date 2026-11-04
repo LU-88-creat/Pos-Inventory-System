@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "./api";
 import {
   ClipboardList,
   RefreshCw,
@@ -87,7 +88,7 @@ export default function Purchases() {
       if (status !== "all") params.set("status", status);
 
       const query = params.toString();
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/purchases${query ? `?${query}` : ""}`
       );
       const result = await response.json();
@@ -107,8 +108,8 @@ export default function Purchases() {
   const loadFormOptions = useCallback(async () => {
     try {
       const [supplierResponse, productResponse] = await Promise.all([
-        fetch(`${API_URL}/suppliers`),
-        fetch(`${API_URL}/products`),
+        apiFetch(`${API_URL}/suppliers`),
+        apiFetch(`${API_URL}/products`),
       ]);
 
       const supplierResult = await supplierResponse.json();
@@ -159,7 +160,7 @@ export default function Purchases() {
     setPaymentHistoryLoading(true);
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_URL}/purchases/${purchase.id}/payments`
     );
 
@@ -214,7 +215,7 @@ export default function Purchases() {
   setPaymentLoading(true);
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_URL}/purchases/${paymentPurchase.id}/payments`,
       {
         method: "POST",
@@ -248,7 +249,7 @@ export default function Purchases() {
 
     await loadPurchases();
 
-    const historyResponse = await fetch(
+    const historyResponse = await apiFetch(
       `${API_URL}/purchases/${paymentPurchase.id}/payments`
     );
     const historyResult = await historyResponse.json();
@@ -405,7 +406,7 @@ export default function Purchases() {
     setSaving(true);
 
     try {
-      const response = await fetch(`${API_URL}/purchases`, {
+      const response = await apiFetch(`${API_URL}/purchases`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -453,7 +454,7 @@ export default function Purchases() {
     setSuccess("");
     setSaving(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/purchases/${orderingPurchase.id}/order`,
         { method: "PATCH" }
       );
@@ -480,7 +481,7 @@ export default function Purchases() {
     setFormError("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/purchases/${purchaseId}`
       );
       const result = await response.json();
@@ -547,7 +548,7 @@ export default function Purchases() {
     try {
       setSaving(true);
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/purchases/${receivingPurchase.id}/receive`,
         {
           method: "PATCH",

@@ -13,7 +13,6 @@ import {
   X,
   Bell,
   Settings,
-  LockKeyhole,
   ChevronRight,
   LogOut,
 } from "lucide-react";
@@ -32,27 +31,93 @@ import SettingsPage from "./Settings";
 
 
 const modules = [
-  { label: "Overview", icon: LayoutDashboard, active: true },
-  { label: "Point of Sale", icon: ShoppingCart, active: true },
-  { label: "Sales", icon: ReceiptText, active: true },
-  { label: "Customers", icon: Users, active: true },
-  { label: "Products", icon: Package, active: true },
-  { label: "Stock Management", icon: Boxes, active: true },
-  { label: "Suppliers", icon: Truck, active: true },
-  { label: "Purchases", icon: ClipboardList, active: true },
-  { label: "Supplier Payment History", icon: ReceiptText, active: true },
-  { label: "Settings", icon: Settings, active: true },
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    roles: ["administrator", "cashier", "storekeeper"],
+  },
+  {
+    label: "Point of Sale",
+    icon: ShoppingCart,
+    roles: ["administrator", "cashier"],
+  },
+  {
+    label: "Sales",
+    icon: ReceiptText,
+    roles: ["administrator", "cashier"],
+  },
+  {
+    label: "Customers",
+    icon: Users,
+    roles: ["administrator", "cashier"],
+  },
+  {
+    label: "Products",
+    icon: Package,
+    roles: ["administrator", "storekeeper"],
+  },
+  {
+    label: "Stock Management",
+    icon: Boxes,
+    roles: ["administrator", "storekeeper"],
+  },
+  {
+    label: "Suppliers",
+    icon: Truck,
+    roles: ["administrator", "storekeeper"],
+  },
+  {
+    label: "Purchases",
+    icon: ClipboardList,
+    roles: ["administrator", "storekeeper"],
+  },
+  {
+    label: "Supplier Payment History",
+    icon: ReceiptText,
+    roles: ["administrator"],
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    roles: ["administrator"],
+  },
 ];
+
 
 export default function Dashboard({ user, token, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeModule, setActiveModule] = useState("Products");
+  
+  const [activeModule, setActiveModule] = useState(() => {
+    const preferredModules = {
+      administrator: "Overview",
+      cashier: "Point of Sale",
+      storekeeper: "Stock Management",
+    };
 
-    useEffect(() => {
+    const defaultModule = modules.find(
+      (module) =>
+        module.label === preferredModules[user?.role] &&
+        module.roles.includes(user?.role)
+    );
+
+    return (
+      defaultModule?.label ??
+      modules.find((module) => module.roles.includes(user?.role))?.label ??
+      "Overview"
+    );
+  });
+
+
+  useEffect(() => {
     const handleNavigation = (event) => {
       const module = event.detail?.module;
 
-      if (modules.some((item) => item.label === module && item.active)) {
+      if (
+        modules.some(
+          (item) =>
+            item.label === module && item.roles.includes(user?.role)
+        )
+      ) {
         setActiveModule(module);
         setSidebarOpen(false);
       }
@@ -63,7 +128,7 @@ export default function Dashboard({ user, token, onLogout }) {
     return () => {
       window.removeEventListener("retailflow:navigate", handleNavigation);
     };
-  }, []);
+  }, [user?.role]);
 
   function handleModuleChange(label) {
     setActiveModule(label);
@@ -120,37 +185,32 @@ export default function Dashboard({ user, token, onLogout }) {
             aria-label="Dashboard navigation"
             className="space-y-1"
           >
-            {modules.map(({ label, icon: Icon, active }) => {
-              const selected = activeModule === label;
+            {modules
+              .filter((module) => module.roles.includes(user?.role))
+              .map(({ label, icon: Icon }) => {
+                const selected = activeModule === label;
 
-              return (
-                <button
-                  key={label}
-                  disabled={!active}
-                  aria-current={selected ? "page" : undefined}
-                  onClick={() => {
-                    if (active) handleModuleChange(label);
-                  }}
-                  title={active ? label : `${label} — coming soon`}
-                  className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${
-                    selected
-                      ? "bg-white/15 font-semibold text-white ring-1 ring-inset ring-white/20"
-                      : active
-                        ? "text-white/90 hover:bg-white/10"
-                        : "cursor-not-allowed text-white/55"
-                  }`}
-                >
-                  <Icon size={18} />
-                  <span className="flex-1">{label}</span>
+                return (
+                  <button
+                    key={label}
+                    aria-current={selected ? "page" : undefined}
+                    onClick={() => handleModuleChange(label)}
+                    title={label}
+                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${
+                      selected
+                        ? "bg-white/15 font-semibold text-white ring-1 ring-inset ring-white/20"
+                        : "text-white/90 hover:bg-white/10"
+                    }`}
+                  >
+                    <Icon size={18} />
+                    <span className="flex-1">{label}</span>
 
-                  {selected ? (
-                    <span className="size-1.5 rounded-full bg-red-300" />
-                  ) : !active ? (
-                    <LockKeyhole size={13} />
-                  ) : null}
-                </button>
-              );
-            })}
+                    {selected && (
+                      <span className="size-1.5 rounded-full bg-red-300" />
+                    )}
+                  </button>
+                );
+              })}
           </nav>
         </div>
 
@@ -242,12 +302,14 @@ export default function Dashboard({ user, token, onLogout }) {
         </header>
 
         <main className="w-full min-w-0 flex-1 border-t-2 border-red-500/70">
-          {activeModule === "Overview" && <Overview />}
+          {activeModule === "Overview" && <Overview user={user} />}
           {activeModule === "Products" && <Product />}
           {activeModule === "Customers" && <Customer />}
           {activeModule === "Point of Sale" && <POS />}
           {activeModule === "Sales" && <Sales />}
-          {activeModule === "Stock Management" && <StockManagement />}
+          {activeModule === "Stock Management" && (
+            <StockManagement token={token} />
+          )}
           {activeModule === "Suppliers" && <Suppliers />}
           {activeModule === "Purchases" && <Purchases />}
           {activeModule === "Supplier Payment History" && <SupplierPaymentHistory />}

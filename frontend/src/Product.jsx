@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "./api";
 import {
   Search, Plus, Pencil, Trash2, RefreshCw, Package, Tags,
   X, AlertCircle, LoaderCircle, Boxes,
@@ -51,7 +52,7 @@ export default function Product() {
   const [form, setForm] = useState(emptyForm);
 
   const request = useCallback(async (url, options = {}) => {
-    const response = await fetch(url, options);
+    const response = await apiFetch(url, options);
     const result = await response.json();
 
     if (!response.ok || !result.success) {

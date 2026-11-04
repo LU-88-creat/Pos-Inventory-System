@@ -221,6 +221,39 @@ export async function initiateStkPush({ phoneNumber, amount, saleId }) {
   };
 }
 
+export async function queryStkPushStatus({
+  checkoutRequestId,
+}) {
+  const config = getDarajaConfig();
+  const accessToken = await getAccessToken(config);
+
+  const timestamp = getNairobiTimestamp();
+
+  const password = Buffer.from(
+    `${config.shortcode}${config.passkey}${timestamp}`
+  ).toString("base64");
+
+  const response = await fetch(
+    `${config.baseUrl}/mpesa/stkpushquery/v1/query`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        BusinessShortCode: config.shortcode,
+        Password: password,
+        Timestamp: timestamp,
+        CheckoutRequestID: checkoutRequestId,
+      }),
+      signal: AbortSignal.timeout(20000),
+    }
+  );
+
+  return await readDarajaResponse(response, "STK Query request");
+}
+
 export function isValidCallbackToken(receivedToken) {
   const expectedToken = process.env.MPESA_CALLBACK_TOKEN;
   if (!expectedToken || typeof receivedToken !== "string") return false;

@@ -1,12 +1,82 @@
 import db from "../config/db.js";
+
 import {
   initiateStkPush,
+  queryStkPushStatus,
   isValidCallbackToken,
   normalizeKenyanPhoneNumber,
   validateDarajaConfig,
 } from "./darajaService.js";
+
 import { fulfillSale } from "./saleFulfillment.js";
 import { getSaleById } from "./salesModel.js";
+
+const lastStkQueryAt = new Map();
+const STK_QUERY_INTERVAL_MS = 10 * 1000;
+const STK_QUERY_INITIAL_DELAY_SECONDS = 5;
+
+async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) {
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [transactions] = await connection.execute(
+      `SELECT id, sale_id, status
+       FROM mpesa_transactions
+       WHERE id = ?
+       FOR UPDATE`,
+      [attemptId]
+    );
+    const transaction = transactions[0];
+
+    if (!transaction || transaction.status !== "pending") {
+      await connection.commit();
+      return;
+    }
+
+    const [sales] = await connection.execute(
+      `SELECT id, payment_method, payment_status
+       FROM sales
+       WHERE id = ?
+       FOR UPDATE`,
+      [transaction.sale_id]
+    );
+    const sale = sales[0];
+
+    if (!sale || sale.payment_method !== "mpesa") {
+      throw new Error("M-Pesa query is not linked to a valid M-Pesa sale.");
+    }
+
+    if (sale.payment_status === "pending") {
+      await connection.execute(
+        `UPDATE sales
+         SET payment_status = 'cancelled'
+         WHERE id = ? AND payment_status = 'pending'`,
+        [sale.id]
+      );
+    } else if (sale.payment_status !== "cancelled") {
+      await connection.commit();
+      return;
+    }
+
+    await connection.execute(
+      `UPDATE mpesa_transactions
+       SET status = 'failed',
+           result_code = ?,
+           result_description = ?
+       WHERE id = ? AND status = 'pending'`,
+      [resultCode, String(resultDescription).slice(0, 255), transaction.id]
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
 
 export async function startStkPush(req, res) {
   let attemptId = null;
@@ -205,6 +275,7 @@ export async function startStkPush(req, res) {
 
 export async function getMpesaStatus(req, res) {
   const saleId = Number(req.params.id);
+
   if (!Number.isInteger(saleId) || saleId <= 0) {
     return res.status(400).json({
       success: false,
@@ -213,7 +284,8 @@ export async function getMpesaStatus(req, res) {
   }
 
   try {
-    const sale = await getSaleById(saleId);
+    let sale = await getSaleById(saleId);
+
     if (!sale) {
       return res.status(404).json({
         success: false,
@@ -222,8 +294,10 @@ export async function getMpesaStatus(req, res) {
     }
 
     const [attempts] = await db.execute(
-      `SELECT status, requested_amount, result_code, result_description,
-              mpesa_receipt_number
+      `SELECT id, status, requested_amount, result_code,
+              result_description, mpesa_receipt_number,
+              checkout_request_id,
+              TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age_seconds
        FROM mpesa_transactions
        WHERE sale_id = ?
        ORDER BY id DESC
@@ -231,15 +305,72 @@ export async function getMpesaStatus(req, res) {
       [saleId]
     );
 
+    let attempt = attempts[0] ?? null;
+
+    const lastQueryTime = attempt
+      ? lastStkQueryAt.get(attempt.id) ?? 0
+      : 0;
+
+    if (
+      attempt &&
+      attempt.status === "pending" &&
+      attempt.checkout_request_id &&
+      Number(attempt.age_seconds) >= STK_QUERY_INITIAL_DELAY_SECONDS &&
+      Date.now() - lastQueryTime >= STK_QUERY_INTERVAL_MS
+    ) {
+      lastStkQueryAt.set(attempt.id, Date.now());
+
+      try {
+        const queryResult = await queryStkPushStatus({
+          checkoutRequestId: attempt.checkout_request_id,
+        });
+
+        const queryResultCode = Number(queryResult.ResultCode);
+        if (
+          String(queryResult.ResponseCode) === "0" &&
+          queryResult.ResultCode !== undefined &&
+          queryResult.ResultCode !== null &&
+          Number.isInteger(queryResultCode) &&
+          queryResultCode !== 0
+        ) {
+          await markMpesaAttemptFailed(
+            attempt.id,
+            queryResultCode,
+            queryResult.ResultDesc || "M-Pesa payment was not completed."
+          );
+        }
+      } catch (queryError) {
+        console.error(
+          "M-Pesa STK Query error:",
+          queryError.message
+        );
+      }
+
+      sale = await getSaleById(saleId);
+      const [updatedAttempts] = await db.execute(
+        `SELECT id, status, requested_amount, result_code,
+                result_description, mpesa_receipt_number,
+                checkout_request_id,
+                TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age_seconds
+         FROM mpesa_transactions
+         WHERE sale_id = ?
+         ORDER BY id DESC
+         LIMIT 1`,
+        [saleId]
+      );
+      attempt = updatedAttempts[0] ?? null;
+    }
+
     return res.status(200).json({
       success: true,
       data: {
         sale,
-        attempt: attempts[0] ?? null,
+        attempt,
       },
     });
   } catch (error) {
     console.error("Get M-Pesa payment status error:", error.message);
+
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve M-Pesa payment status.",
@@ -309,6 +440,19 @@ export async function handleStkCallback(req, res) {
     );
     const resultDescription = String(callback.ResultDesc ?? "").slice(0, 255);
 
+    const [sales] = await connection.execute(
+      `SELECT id, payment_method, payment_status
+       FROM sales
+       WHERE id = ?
+       FOR UPDATE`,
+      [transaction.sale_id]
+    );
+    const sale = sales[0];
+
+    if (!sale || sale.payment_method !== "mpesa") {
+      throw new Error("M-Pesa callback is not linked to a valid M-Pesa sale.");
+    }
+
     if (resultCode === 0) {
       if (
         callbackAmount !== Number(transaction.requested_amount) ||
@@ -320,19 +464,6 @@ export async function handleStkCallback(req, res) {
         );
       }
 
-      const [sales] = await connection.execute(
-        `SELECT id, payment_method, payment_status
-         FROM sales
-         WHERE id = ?
-         FOR UPDATE`,
-        [transaction.sale_id]
-      );
-      const sale = sales[0];
-
-      if (!sale || sale.payment_method !== "mpesa") {
-        throw new Error("M-Pesa callback is not linked to a valid M-Pesa sale.");
-      }
-
       if (sale.payment_status === "pending") {
         await fulfillSale(connection, sale.id, sale);
       } else if (sale.payment_status !== "completed") {
@@ -340,6 +471,17 @@ export async function handleStkCallback(req, res) {
           `M-Pesa payment succeeded for sale ${sale.id}, which is ${sale.payment_status}.`
         );
       }
+    } else if (sale.payment_status === "pending") {
+      await connection.execute(
+        `UPDATE sales
+         SET payment_status = 'cancelled'
+         WHERE id = ? AND payment_status = 'pending'`,
+        [sale.id]
+      );
+    } else if (sale.payment_status !== "cancelled") {
+      throw new Error(
+        `M-Pesa payment failed for sale ${sale.id}, which is ${sale.payment_status}.`
+      );
     }
 
     await connection.execute(

@@ -14,6 +14,19 @@ export async function getUserByUsername(username) {
   return rows[0] || null;
 }
 
+// Find an employee account using its email address.
+export async function getUserByEmail(email) {
+  const [rows] = await db.execute(
+    `SELECT id, full_name, email, is_active
+     FROM users
+     WHERE email = ?
+     LIMIT 1`,
+    [email]
+  );
+
+  return rows[0] || null;
+}
+
 // Find an employee account using its ID.
 export async function getUserById(id) {
   const [rows] = await db.execute(
@@ -98,4 +111,29 @@ export async function updateUserStatus(id, is_active) {
   }
 
   return getUserById(id);
+}
+
+// Retrieve the current password hash for an employee.
+export async function getUserPasswordHash(id) {
+  const [rows] = await db.execute(
+    `SELECT password_hash
+     FROM users
+     WHERE id = ?
+     LIMIT 1`,
+    [id]
+  );
+
+  return rows[0] || null;
+}
+
+// Update an employee's password hash.
+export async function updateUserPassword(id, password_hash) {
+  const [result] = await db.execute(
+    `UPDATE users
+     SET password_hash = ?
+     WHERE id = ?`,
+    [password_hash, id]
+  );
+
+  return result.affectedRows > 0;
 }

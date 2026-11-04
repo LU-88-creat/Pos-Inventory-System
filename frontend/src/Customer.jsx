@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "./api";
 import {
   Search,
   Plus,
@@ -47,7 +48,7 @@ export default function Customer() {
       }
 
       const query = params.toString();
-      const response = await fetch(
+      const response = await apiFetch(
         `${API}${query ? `?${query}` : ""}`
       );
 
@@ -127,7 +128,7 @@ export default function Customer() {
     try {
       const isEditing = Boolean(editingCustomer);
 
-      const response = await fetch(
+      const response = await apiFetch(
         isEditing
           ? `${API}/${editingCustomer.id}`
           : API,
@@ -176,7 +177,7 @@ export default function Customer() {
     setNotice("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API}/${customer.id}/status`,
         { method: "PATCH" }
       );

@@ -570,6 +570,7 @@
 // }
 
 import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "./api";
 import {
   Search,
   RefreshCw,
@@ -632,7 +633,7 @@ export default function Sales() {
     setError("");
 
     try {
-      const response = await fetch(SALES_API);
+      const response = await apiFetch(SALES_API);
       const result = await response.json();
 
       if (!response.ok) {
@@ -670,7 +671,7 @@ export default function Sales() {
     setDetailsLoading(true);
 
     try {
-      const response = await fetch(`${SALES_API}/${saleId}`);
+      const response = await apiFetch(`${SALES_API}/${saleId}`);
       const result = await response.json();
 
       if (!response.ok) {
@@ -1126,7 +1127,7 @@ export default function Sales() {
                 {/* Receipt layout: shown on screen only when printing. */}
                 <div id="historical-receipt" className="hidden print:block">
                   <div className="receipt-paper">
-                    <h2>RETAIL STORE</h2>
+                    <h2>7 to 7 Supermarket</h2>
                     <p className="receipt-subtitle">SALES RECEIPT</p>
                     <hr />
 
