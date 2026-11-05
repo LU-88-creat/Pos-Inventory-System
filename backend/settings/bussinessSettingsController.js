@@ -3,6 +3,8 @@ import {
   updateBusinessSettings,
 } from "./businessSettingsModel.js";
 
+import { createActivityLog } from "../activityLogs/activityLogModel.js";
+
 export async function fetchBusinessSettings(req, res) {
   try {
     const settings = await getBusinessSettings();
@@ -94,6 +96,24 @@ export async function saveBusinessSettings(req, res) {
       tax_enabled,
       tax_rate: parsedTaxRate,
     });
+
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "BUSINESS_SETTINGS_UPDATED",
+        entity_type: "business_settings",
+        entity_id: settings.id || 1,
+        description: `${req.user.full_name} updated business settings. Business name: ${settings.business_name}; currency: ${settings.currency}; tax enabled: ${settings.tax_enabled}; tax rate: ${settings.tax_rate}%.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      console.error(
+        "Business settings activity logging error:",
+        logError.message
+     );
+    }
 
     return res.status(200).json({
       success: true,

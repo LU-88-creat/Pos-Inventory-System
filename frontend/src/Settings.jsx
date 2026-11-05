@@ -352,18 +352,19 @@ export default function Settings({ token }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
-      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Settings
-        </h1>
+    <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h1 className="text-2xl font-bold text-slate-900">
+            Settings
+          </h1>
 
-        <p className="mt-1 text-sm text-slate-500">
-          Manage your 7 to 7 system configuration.
-        </p>
-      </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Manage your 7 to 7 system configuration.
+          </p>
+        </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {settingsSections.map(({ title, description, icon: Icon, key }) => (
           <button
             key={key}
@@ -389,7 +390,7 @@ export default function Settings({ token }) {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <>
           {activeSection === "employees" && (
           <div>
@@ -1129,6 +1130,7 @@ export default function Settings({ token }) {
 
         
         </>
+        </div>
       </div>
     </div>
   );

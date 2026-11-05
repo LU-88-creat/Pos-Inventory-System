@@ -15,6 +15,7 @@ import {
   Settings,
   ChevronRight,
   LogOut,
+  History,
 } from "lucide-react";
 
 import Product from "./Product";
@@ -28,6 +29,7 @@ import Purchases from "./Purchases";
 import SupplierPaymentHistory from "./SupplierPaymentHistory";
 import Overview from "./Overview";
 import SettingsPage from "./Settings";
+import ActivityLogs from "./ActivityLogs";
 
 
 const modules = [
@@ -74,6 +76,11 @@ const modules = [
   {
     label: "Supplier Payment History",
     icon: ReceiptText,
+    roles: ["administrator"],
+  },
+  {
+    label: "Audit Trail",
+    icon: History,
     roles: ["administrator"],
   },
   {
@@ -313,6 +320,7 @@ export default function Dashboard({ user, token, onLogout }) {
           {activeModule === "Suppliers" && <Suppliers />}
           {activeModule === "Purchases" && <Purchases />}
           {activeModule === "Supplier Payment History" && <SupplierPaymentHistory />}
+          {activeModule === "Audit Trail" && <ActivityLogs token={token} />}
           {activeModule === "Settings" && <SettingsPage token={token} />}
         </main>
 

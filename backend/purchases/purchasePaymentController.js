@@ -5,6 +5,8 @@ import {
   getAllPurchasePayments,
 } from "./purchasePaymentModel.js";
 
+import { createActivityLog } from "../activityLogs/activityLogModel.js";
+
 const VALID_PAYMENT_METHODS = [
   "cash",
   "mpesa",
@@ -16,6 +18,13 @@ const VALID_PAYMENT_METHODS = [
 export async function addPurchasePayment(req, res) {
   try {
     const purchaseId = Number(req.params.id);
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid JSON request body is required.",
+      });
+    }
+
     const {
       amount,
       payment_method,
@@ -91,6 +100,24 @@ export async function addPurchasePayment(req, res) {
       payment_date: payment_date || null,
       notes: notes?.trim() || null,
     });
+
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "SUPPLIER_PAYMENT_RECORDED",
+        entity_type: "supplier_payment",
+        entity_id: payment.payment_id,
+        description: `${req.user.full_name} recorded a supplier payment of KES ${payment.amount.toFixed(2)} for purchase #${payment.purchase_id} using ${payment_method}. Payment status: ${payment.payment_status}.`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      console.error(
+        "Supplier payment activity logging error:",
+        logError.message
+      );
+    }
 
     return res.status(201).json({
       success: true,

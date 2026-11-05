@@ -138,13 +138,62 @@ export async function addUser(req, res) {
       const safeName = escapeHtml(user.full_name);
       const safeUsername = escapeHtml(user.username);
       const safePassword = escapeHtml(password);
+      const safeRole = escapeHtml(user.role);
+      const safeLoginUrl = escapeHtml(loginUrl);
 
       await transporter.sendMail({
         from: getMailFrom(),
         to: user.email,
-        subject: "Your POS employee login credentials",
-        text: `Hello ${user.full_name},\n\nYour employee account has been created.\nUsername: ${user.username}\nPassword: ${password}\n\nSign in here: ${loginUrl}\nFor your security, change your password after signing in.`,
-        html: `<p>Hello ${safeName},</p><p>Your employee account has been created.</p><p><strong>Username:</strong> ${safeUsername}<br><strong>Password:</strong> ${safePassword}</p><p><a href="${escapeHtml(loginUrl)}">Sign in to your account</a></p><p>For your security, change your password after signing in.</p>`,
+        subject: "Welcome to 7 to 7 POS — your employee account",
+        text: [
+          `Hello ${user.full_name},`,
+          "",
+          "Your employee account is ready. Use the details below to sign in:",
+          "",
+          `Username: ${user.username}`,
+          `Temporary password: ${password}`,
+          `Role: ${user.role}`,
+          "",
+          `Sign in: ${loginUrl}`,
+          "",
+          "For your security, change your password after signing in. Keep these credentials private and do not forward this email.",
+          "",
+          "If you were not expecting this account, contact your administrator.",
+          "",
+          "7 to 7 POS & Inventory",
+        ].join("\n"),
+        html: `
+          <div style="margin:0;padding:32px 16px;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#1e293b;">
+            <div style="max-width:560px;margin:0 auto;overflow:hidden;border:1px solid #e2e8f0;border-radius:16px;background-color:#ffffff;">
+              <div style="padding:28px 32px;background-color:#15803d;color:#ffffff;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:bold;letter-spacing:2px;">7 TO 7 · POS &amp; INVENTORY</p>
+                <h1 style="margin:0;font-size:24px;line-height:1.3;">Welcome to the team</h1>
+              </div>
+              <div style="padding:28px 32px;">
+                <p style="margin:0 0 16px;font-size:16px;">Hello ${safeName},</p>
+                <p style="margin:0 0 22px;color:#475569;line-height:1.6;">Your employee account is ready. Use these credentials to sign in:</p>
+                <div style="margin:0 0 24px;padding:18px 20px;border:1px solid #dcfce7;border-radius:12px;background-color:#f0fdf4;">
+                  <p style="margin:0 0 12px;color:#475569;font-size:13px;">USERNAME</p>
+                  <p style="margin:0 0 18px;font-size:16px;font-weight:bold;word-break:break-word;">${safeUsername}</p>
+                  <p style="margin:0 0 12px;color:#475569;font-size:13px;">TEMPORARY PASSWORD</p>
+                  <p style="margin:0 0 18px;font-family:monospace;font-size:16px;font-weight:bold;word-break:break-all;">${safePassword}</p>
+                  <p style="margin:0 0 6px;color:#475569;font-size:13px;">ACCOUNT ROLE</p>
+                  <p style="margin:0;font-size:14px;font-weight:bold;text-transform:capitalize;">${safeRole}</p>
+                </div>
+                <p style="margin:0 0 24px;text-align:center;">
+                  <a href="${safeLoginUrl}" style="display:inline-block;padding:13px 24px;border-radius:9px;background-color:#15803d;color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;">Sign in to your account</a>
+                </p>
+                <div style="padding:16px;border-left:4px solid #f59e0b;background-color:#fffbeb;color:#78350f;font-size:13px;line-height:1.6;">
+                  For your security, change your password after signing in. Keep these credentials private and do not forward this email.
+                </div>
+                <p style="margin:22px 0 0;color:#64748b;font-size:13px;line-height:1.6;">If you were not expecting this account, contact your administrator.</p>
+              </div>
+              <div style="padding:18px 32px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;text-align:center;">
+                7 to 7 POS &amp; Inventory Management
+              </div>
+            </div>
+          </div>
+        `,
       });
     } catch (mailError) {
       credentialsEmailSent = false;

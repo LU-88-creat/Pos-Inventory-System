@@ -164,17 +164,25 @@ export async function requestPasswordReset(req, res) {
       resetUrl.searchParams.set("resetToken", token);
 
       try {
-        await transporter.sendMail({
+        const delivery = await transporter.sendMail({
           from: getMailFrom(),
           to: user.email,
           subject: "Reset your POS account password",
           text: `Hello ${user.full_name},\n\nUse this link to reset your password. It expires in one hour:\n${resetUrl.toString()}\n\nIf you did not request this, you can ignore this email.`,
           html: `<p>Hello,</p><p>Use the link below to reset your password. It expires in one hour.</p><p><a href="${resetUrl.toString()}">Reset password</a></p><p>If you did not request this, you can ignore this email.</p>`,
         });
+
+        if (!delivery.accepted?.length || delivery.rejected?.length) {
+          throw new Error("SMTP server did not accept the reset email recipient.");
+        }
       } catch (mailError) {
         await deletePasswordResetToken(tokenHash);
         throw mailError;
       }
+    } else {
+      console.warn(
+        "Password reset email not sent: no active account with a configured email was found."
+      );
     }
 
     return res.status(200).json({
