@@ -150,6 +150,60 @@ export default function ActivityLogs({ token }) {
 
   const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
 
+  // Export filtered activity logs to CSV
+  const exportToCSV = () => {
+    const headers = [
+      "Employee Name",
+      "Username",
+      "Action",
+      "Entity Type",
+      "Entity ID",
+      "Description",
+      "IP Address",
+      "Date",
+    ];
+
+    const escapeCSV = (value) => {
+      const text = String(value ?? "");
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const rows = filteredLogs.map((log) => [
+      log.employee_name,
+      log.username,
+      log.action,
+      log.entity_type,
+      log.entity_id,
+      log.description,
+      log.ip_address,
+      log.created_at
+        ? new Date(log.created_at).toLocaleString()
+        : "",
+      ]);
+
+      const csvContent = [
+        headers.map(escapeCSV).join(","),
+        ...rows.map((row) => row.map(escapeCSV).join(",")),
+      ].join("\n");
+
+      const blob = new Blob(
+        ["\uFEFF" + csvContent],
+        { type: "text/csv;charset=utf-8;" }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `7-to-7-audit-trail-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`;
+
+      link.click();
+
+      URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-w-0 p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -161,14 +215,24 @@ export default function ActivityLogs({ token }) {
             </p>
           </div>
 
-          <button
-            onClick={refreshActivityLogs}
-            disabled={loading}
-            className="flex items-center justify-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            {loading ? "Loading..." : "Refresh"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={exportToCSV}
+              disabled={filteredLogs.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Export CSV
+            </button>
+
+            <button
+              onClick={refreshActivityLogs}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw size={16} />
+              {loading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
         </div>
 
         {/* Audit Trail Statistics */}
