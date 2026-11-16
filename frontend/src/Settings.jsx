@@ -5,6 +5,7 @@ import {
   ShieldCheck,
   Building2,
   LockKeyhole,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -46,6 +47,7 @@ export default function Settings({ token }) {
   const [formSuccess, setFormSuccess] = useState("");
   const [formSuccessIsWarning, setFormSuccessIsWarning] = useState(false);
   const [updatingEmployeeId, setUpdatingEmployeeId] = useState(null);
+  const [deletingEmployeeId, setDeletingEmployeeId] = useState(null);
   const [statusError, setStatusError] = useState("");
   const [statusSuccess, setStatusSuccess] = useState("");
 
@@ -247,6 +249,45 @@ export default function Settings({ token }) {
       setStatusError(error.message);
     } finally {
       setUpdatingEmployeeId(null);
+    }
+  }
+
+  async function handleDeleteEmployee(employee) {
+    const confirmed = window.confirm(
+      `Permanently delete the account for ${employee.full_name}? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingEmployeeId(employee.id);
+    setStatusError("");
+    setStatusSuccess("");
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/users/${employee.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to delete employee account.");
+      }
+
+      setEmployees((previous) =>
+        previous.filter((item) => item.id !== employee.id)
+      );
+      setStatusSuccess(`${employee.full_name}'s account was deleted.`);
+    } catch (error) {
+      setStatusError(error.message);
+    } finally {
+      setDeletingEmployeeId(null);
     }
   }
 
@@ -659,10 +700,11 @@ export default function Settings({ token }) {
                                     </td>
 
                                     <td className="p-3">
+                                      <div className="flex flex-wrap gap-2">
                                       <button
                                         type="button"
                                         onClick={() => handleToggleEmployeeStatus(employee)}
-                                        disabled={updatingEmployeeId === employee.id}
+                                        disabled={updatingEmployeeId === employee.id || deletingEmployeeId === employee.id}
                                         className={`rounded-xl px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition disabled:opacity-60 ${
                                           employee.is_active
                                             ? "bg-red-600 hover:bg-red-700"
@@ -675,6 +717,17 @@ export default function Settings({ token }) {
                                             ? "Deactivate"
                                             : "Activate"}
                                       </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteEmployee(employee)}
+                                        disabled={deletingEmployeeId === employee.id || updatingEmployeeId === employee.id}
+                                        aria-label={`Delete ${employee.full_name}'s account`}
+                                        className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 shadow-sm transition hover:bg-red-50 disabled:opacity-60"
+                                      >
+                                        <Trash2 size={14} />
+                                        {deletingEmployeeId === employee.id ? "Deleting..." : "Delete"}
+                                      </button>
+                                      </div>
                                     </td>
                                 </tr>
                             ))}

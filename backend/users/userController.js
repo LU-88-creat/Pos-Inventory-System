@@ -4,7 +4,9 @@ import bcrypt from "bcrypt";
 import {
   createUser,
   getAllUsers,
+  getUserById,
   updateUserStatus,
+  deleteUserById,
   getUserPasswordHash,
   updateUserPassword,
 } from "./userModel.js";
@@ -311,6 +313,79 @@ export async function changeUserStatus(req, res) {
     return res.status(500).json({
       success: false,
       message: "Unable to update employee status.",
+    });
+  }
+}
+
+export async function deleteUser(req, res) {
+  try {
+    const userId = Number(req.params.id);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid employee ID.",
+      });
+    }
+
+    if (userId === Number(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete your own account.",
+      });
+    }
+
+    const user = await getUserById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found.",
+      });
+    }
+
+    const deleted = await deleteUserById(userId);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found.",
+      });
+    }
+
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "EMPLOYEE_DELETED",
+        entity_type: "user",
+        entity_id: user.id,
+        description: `${req.user.full_name} deleted employee account for ${user.full_name} (${user.username}).`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      console.error("Employee deletion activity logging error:", logError.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Employee account deleted successfully.",
+    });
+  } catch (error) {
+    if (error.code === "ER_ROW_IS_REFERENCED_2" ||
+        error.code === "ER_ROW_IS_REFERENCED") {
+      return res.status(409).json({
+        success: false,
+        message: "This employee has recorded activity and cannot be deleted. Deactivate the account instead.",
+      });
+    }
+
+    console.error("Delete employee error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to delete employee account.",
     });
   }
 }

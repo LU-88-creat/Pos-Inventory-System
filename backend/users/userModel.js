@@ -113,6 +113,16 @@ export async function updateUserStatus(id, is_active) {
   return getUserById(id);
 }
 
+export async function deleteUserById(id) {
+  const [result] = await db.execute(
+    `DELETE FROM users
+     WHERE id = ?`,
+    [id]
+  );
+
+  return result.affectedRows > 0;
+}
+
 // Retrieve the current password hash for an employee.
 export async function getUserPasswordHash(id) {
   const [rows] = await db.execute(

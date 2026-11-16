@@ -9,6 +9,7 @@ import {
   listUsers,
   addUser,
   changeUserStatus,
+  deleteUser,
   changePassword,
 } from "./userController.js";
 
@@ -31,5 +32,8 @@ router.post("/", addUser);
 
 // Activate or deactivate an employee.
 router.patch("/:id/status", changeUserStatus);
+
+// Permanently delete an employee account.
+router.delete("/:id", deleteUser);
 
 export default router;
