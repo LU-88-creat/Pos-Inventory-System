@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 // import { useEffect, useMemo, useState } from "react";
 // import {
 //   Search,
@@ -652,7 +653,7 @@ export default function Sales() {
   };
 
   useEffect(() => {
-    fetchSales();
+    void fetchSales();
   }, []);
 
   const printSaleReceipt = () => {

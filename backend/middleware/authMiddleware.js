@@ -2,6 +2,13 @@
 import jwt from "jsonwebtoken";
 import { getUserById } from "../users/userModel.js";
 
+const TRANSIENT_DATABASE_ERRORS = new Set([
+  "ECONNRESET",
+  "PROTOCOL_CONNECTION_LOST",
+  "ETIMEDOUT",
+  "EPIPE",
+]);
+
 // Verify the employee's JWT token.
 export async function authenticateToken(req, res, next) {
   try {
@@ -60,6 +67,15 @@ export async function authenticateToken(req, res, next) {
       return res.status(401).json({
         success: false,
         message: "Invalid or expired authentication token. Please log in again.",
+      });
+    }
+
+    if (TRANSIENT_DATABASE_ERRORS.has(error.code)) {
+      console.error("Authentication database connection error:", error.message);
+
+      return res.status(503).json({
+        success: false,
+        message: "Authentication is temporarily unavailable. Please try again.",
       });
     }
 

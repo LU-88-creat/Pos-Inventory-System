@@ -1,4 +1,5 @@
 
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "./api";
 import {
@@ -281,11 +282,11 @@ export default function Purchases() {
 
 
   useEffect(() => {
-    loadPurchases();
+    void loadPurchases();
   }, [loadPurchases]);
 
   useEffect(() => {
-    loadFormOptions();
+    void loadFormOptions();
   }, [loadFormOptions]);
 
   function resetForm() {

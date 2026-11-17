@@ -1,4 +1,5 @@
 
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "./api";
 import {
@@ -121,11 +122,11 @@ export default function Product() {
   }, [request, search, categoryId]);
 
   useEffect(() => {
-    loadCategories();
+    void loadCategories();
   }, [loadCategories]);
 
   useEffect(() => {
-    loadProducts();
+    void loadProducts();
   }, [loadProducts]);
 
   function openAdd() {

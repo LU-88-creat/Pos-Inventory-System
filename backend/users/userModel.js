@@ -1,6 +1,26 @@
 
 import db from "../config/db.js";
 
+const RETRYABLE_CONNECTION_ERRORS = new Set([
+  "ECONNRESET",
+  "PROTOCOL_CONNECTION_LOST",
+  "ETIMEDOUT",
+  "EPIPE",
+]);
+
+async function executeUserRead(sql, values) {
+  try {
+    return await db.execute(sql, values);
+  } catch (error) {
+    if (!RETRYABLE_CONNECTION_ERRORS.has(error.code)) {
+      throw error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return db.execute(sql, values);
+  }
+}
+
 // Find an employee account using their username.
 export async function getUserByUsername(username) {
   const [rows] = await db.execute(
@@ -29,7 +49,7 @@ export async function getUserByEmail(email) {
 
 // Find an employee account using its ID.
 export async function getUserById(id) {
-  const [rows] = await db.execute(
+  const [rows] = await executeUserRead(
     `SELECT
        id,
        full_name,

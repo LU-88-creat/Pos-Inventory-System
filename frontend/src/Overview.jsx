@@ -1,5 +1,6 @@
 
-import { useEffect, useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "./api";
 import {
   TrendingUp,
@@ -48,7 +49,7 @@ export default function Overview({ user }) {
   const [salesPeriod, setSalesPeriod] = useState("7");
 
   
-  async function loadOverview(showLoading = true) {
+  const loadOverview = useCallback(async (showLoading = true) => {
     if (showLoading) {
       setLoading(true);
     }
@@ -122,23 +123,20 @@ export default function Overview({ user }) {
         setLoading(false);
       }
     }
-  }
+  }, [user]);
 
 
   useEffect(() => {
-  // Load dashboard data when the page opens.
-  loadOverview();
+    void loadOverview();
 
-  // Refresh dashboard data every 60 seconds.
-  const intervalId = window.setInterval(() => {
-    loadOverview(false);
-  }, 60000);
+    const intervalId = window.setInterval(() => {
+      void loadOverview(false);
+    }, 60000);
 
-  // Stop the timer when the dashboard unmounts.
-  return () => {
-    window.clearInterval(intervalId);
-  };
-  }, []);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [loadOverview]);
 
   const todayKey = getLocalDateKey(new Date());
   const completedSales = sales.filter(

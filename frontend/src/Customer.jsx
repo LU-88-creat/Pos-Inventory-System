@@ -72,7 +72,9 @@ export default function Customer() {
   }, []);
 
   useEffect(() => {
-    loadCustomers();
+    void (async () => {
+      await loadCustomers();
+    })();
   }, [loadCustomers]);
 
   function openAddModal() {

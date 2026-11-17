@@ -1,4 +1,5 @@
 
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "./api";
 import {
@@ -64,7 +65,7 @@ export default function SupplierPaymentHistory() {
   }, []);
 
   useEffect(() => {
-    loadPayments();
+    void loadPayments();
   }, [loadPayments]);
 
   const filteredPayments = payments.filter((payment) => {

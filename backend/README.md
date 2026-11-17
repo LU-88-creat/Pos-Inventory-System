@@ -1,5 +1,9 @@
 # Backend setup
 
+## Database TLS certificate
+
+Database TLS certificate verification remains enabled. If the database server uses a CA certificate that is not trusted by Node.js, download its CA certificate from your database provider and set `DB_SSL_CA_PATH` in `.env` to the certificate file. Relative paths are resolved from the backend directory; for example, `certs/database-ca.pem`. Do not disable certificate verification to work around certificate-chain errors.
+
 ## Password reset email
 
 1. Run `auth/migrations/create_password_reset_tokens.sql` against the configured database.

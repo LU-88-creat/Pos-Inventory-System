@@ -77,6 +77,10 @@ export async function getStockMovements({
   productId = null,
   limit = 100,
 } = {}) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) {
+    throw new RangeError("Stock movement limit must be between 1 and 500.");
+  }
+
   const params = [];
   let whereClause = "";
 
@@ -84,8 +88,6 @@ export async function getStockMovements({
     whereClause = "WHERE sm.product_id = ?";
     params.push(productId);
   }
-
-  params.push(limit);
 
   const [rows] = await db.execute(
     `SELECT
@@ -105,7 +107,7 @@ export async function getStockMovements({
      INNER JOIN products p ON p.id = sm.product_id
      ${whereClause}
      ORDER BY sm.created_at DESC, sm.id DESC
-     LIMIT ?`,
+     LIMIT ${limit}`,
     params
   );
 

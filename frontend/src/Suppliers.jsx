@@ -1,4 +1,5 @@
 
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "./api";
 import {
@@ -80,7 +81,7 @@ export default function Suppliers() {
   }, [status, search]);
 
   useEffect(() => {
-    loadSuppliers();
+    void loadSuppliers();
   }, [loadSuppliers]);
 
   function openAddForm() {

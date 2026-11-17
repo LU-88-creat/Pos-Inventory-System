@@ -22,8 +22,7 @@ export async function listActivityLogs(req, res) {
         created_at
       FROM activity_logs
       ORDER BY created_at DESC, id DESC
-      LIMIT ?`,
-      [limit]
+      LIMIT ${limit}`
     );
 
     return res.status(200).json({

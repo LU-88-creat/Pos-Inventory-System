@@ -22,9 +22,25 @@ export default function ActivityLogs({ token }) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
-  useEffect(() => {
+  function updateSearch(nextSearch) {
+    setSearch(nextSearch);
     setCurrentPage(1);
-  }, [search, actionFilter, startDate, endDate, logs.length]);
+  }
+
+  function updateActionFilter(nextAction) {
+    setActionFilter(nextAction);
+    setCurrentPage(1);
+  }
+
+  function updateStartDate(nextDate) {
+    setStartDate(nextDate);
+    setCurrentPage(1);
+  }
+
+  function updateEndDate(nextDate) {
+    setEndDate(nextDate);
+    setCurrentPage(1);
+  }
 
   useEffect(() => {
     let active = true;
@@ -329,7 +345,7 @@ export default function ActivityLogs({ token }) {
             <input
               type="search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => updateSearch(event.target.value)}
               placeholder="Search activities..."
               aria-label="Search audit trail"
               className="min-h-10 w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100"
@@ -347,7 +363,7 @@ export default function ActivityLogs({ token }) {
 
             <select
               value={actionFilter}
-              onChange={(event) => setActionFilter(event.target.value)}
+              onChange={(event) => updateActionFilter(event.target.value)}
               className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-green-500"
             >
               <option value="all">All Activities</option>
@@ -372,7 +388,7 @@ export default function ActivityLogs({ token }) {
               type="date"
               value={startDate}
               max={endDate || undefined}
-              onChange={(event) => setStartDate(event.target.value)}
+              onChange={(event) => updateStartDate(event.target.value)}
               className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-green-500"
             />
           </div>
@@ -387,7 +403,7 @@ export default function ActivityLogs({ token }) {
               type="date"
               value={endDate}
               min={startDate || undefined}
-              onChange={(event) => setEndDate(event.target.value)}
+              onChange={(event) => updateEndDate(event.target.value)}
               className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-green-500"
             />
           </div>
@@ -403,6 +419,7 @@ export default function ActivityLogs({ token }) {
               setActionFilter("all");
               setStartDate("");
               setEndDate("");
+              setCurrentPage(1);
             }}
             className="text-xs font-semibold text-green-700 hover:text-green-900"
           >
