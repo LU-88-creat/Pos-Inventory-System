@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import brandLogo from "./assets/brand-logo.png";
+import { Eye, EyeOff } from "lucide-react";
 
 const API = `${import.meta.env.VITE_API_URL}/auth`;
 
@@ -16,6 +17,9 @@ function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [view, setView] = useState(() =>
     new URLSearchParams(window.location.search).has("resetToken")
       ? "reset"
@@ -209,17 +213,26 @@ function Login({ onLogin }) {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Password
               </label>
-
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                required
-                autoComplete="current-password"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
-                placeholder="Enter your password"
-              />
+              <div className="relative">
+                <input
+                  type={showLoginPassword ? "text" : "password"}
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  required
+                  autoComplete="current-password"
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 pr-12 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-green-600"
+                  aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                >
+                  {showLoginPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
 
             <div className="text-right">
@@ -285,38 +298,67 @@ function Login({ onLogin }) {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 New password
               </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                required
-                minLength={12}
-                autoComplete="new-password"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
-                placeholder="At least 12 characters"
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  required
+                  minLength={12}
+                  autoComplete="new-password"
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 pr-12 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  placeholder="At least 12 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-green-600"
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
+
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Confirm new password
               </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                required
-                minLength={12}
-                autoComplete="new-password"
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
-                placeholder="Re-enter your new password"
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  required
+                  minLength={12}
+                  autoComplete="new-password"
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 pr-12 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  placeholder="Re-enter your new password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-green-600"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
+
             <button
               type="submit"
               disabled={loading}
               className="w-full rounded-lg bg-green-700 py-3 font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Updating..." : "Update password"}
+            </button>
+            <button
+              type="button"
+              onClick={showLogin}
+              className="w-full py-2 text-sm font-medium text-slate-600 hover:text-slate-800"
+            >
+              Back to sign in
             </button>
           </form>
         )}

@@ -11,18 +11,23 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const dbHost = (process.env.DB_HOST || "localhost").trim();
 const dbConfig = {
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 4000),
+  host: dbHost,
+  port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  connectTimeout: 15000,
 };
 
 const caPath = process.env.DB_SSL_CA_PATH;
+const isLocalDatabase = ["localhost", "127.0.0.1", "::1"].includes(
+  dbHost.toLowerCase()
+);
 
 if (caPath) {
   const resolvedCaPath = path.isAbsolute(caPath)
@@ -41,7 +46,7 @@ if (caPath) {
       error.message
     );
   }
-} else {
+} else if (!isLocalDatabase) {
   dbConfig.ssl = {
     minVersion: "TLSv1.2",
   };

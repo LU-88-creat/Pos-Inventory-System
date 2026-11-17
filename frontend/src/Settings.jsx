@@ -9,6 +9,10 @@ import {
   X,
 } from "lucide-react";
 
+
+const API_BASE = import.meta.env.VITE_API_URL;
+
+
 const settingsSections = [
   {
     title: "Employee Management",
@@ -93,7 +97,7 @@ export default function Settings({ token }) {
     setEmployeeError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/users", {
+      const response = await fetch(`${API_BASE}/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -125,7 +129,7 @@ export default function Settings({ token }) {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/settings/business",
+        `${API_BASE}/settings/business`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -164,7 +168,7 @@ export default function Settings({ token }) {
   setSavingEmployee(true);
 
   try {
-    const response = await fetch("http://localhost:5000/api/users", {
+    const response = await fetch(`${API_BASE}/users`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -217,7 +221,7 @@ export default function Settings({ token }) {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/users/${employee.id}/status`,
+        `${API_BASE}/users/${employee.id}/status`,
         {
           method: "PATCH",
           headers: {
@@ -265,7 +269,7 @@ export default function Settings({ token }) {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/users/${employee.id}`,
+        `${API_BASE}/users/${employee.id}`,
         {
           method: "DELETE",
           headers: {
@@ -300,7 +304,7 @@ export default function Settings({ token }) {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/settings/business",
+        `${API_BASE}/settings/business`,
         {
           method: "PUT",
           headers: {
@@ -356,7 +360,7 @@ export default function Settings({ token }) {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/users/change-password",
+        `${API_BASE}/users/change-password`,
         {
           method: "PATCH",
           headers: {
