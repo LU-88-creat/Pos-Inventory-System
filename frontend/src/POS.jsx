@@ -17,8 +17,8 @@ import {
   Smartphone,
 } from "lucide-react";
 
-const PRODUCT_API = "http://localhost:5000/api/products";
-const SALES_API = "http://localhost:5000/api/sales";
+const PRODUCT_API = `${import.meta.env.VITE_API_URL}/products`;
+const SALES_API = `${import.meta.env.VITE_API_URL}/sales`;
 
 const formatKES = (amount) =>
   new Intl.NumberFormat("en-KE", {

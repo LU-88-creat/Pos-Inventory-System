@@ -7,7 +7,7 @@ import {
   X, AlertCircle, LoaderCircle, Boxes,
 } from "lucide-react";
 
-const API = "http://localhost:5000/api/products";
+const API = `${import.meta.env.VITE_API_URL}/products`;
 
 const emptyForm = {
   product_name: "",

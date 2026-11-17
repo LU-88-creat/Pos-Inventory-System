@@ -16,7 +16,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-const API = "http://localhost:5000/api/customers";
+const API = `${import.meta.env.VITE_API_URL}/customers`;
 
 const emptyForm = {
   customer_name: "",

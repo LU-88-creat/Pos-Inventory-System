@@ -17,7 +17,15 @@ import activityLogRoutes from "./activityLogs/activityLogRoutes.js";
 
 const app = express();
 
-app.use(cors({ origin: ["http://localhost:5173", "http://localhost:5174"] }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://pos-inventory-system-ten.vercel.app",
+    ],
+  })
+);
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);

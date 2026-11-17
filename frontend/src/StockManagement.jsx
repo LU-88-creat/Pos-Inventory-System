@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_URL;
 
 function formatQuantity(value) {
   return Number(value ?? 0).toLocaleString("en-KE", {

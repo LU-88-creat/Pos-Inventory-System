@@ -2,7 +2,7 @@
 import { useState } from "react";
 import brandLogo from "./assets/brand-logo.png";
 
-const API = "http://localhost:5000/api/auth";
+const API = `${import.meta.env.VITE_API_URL}/auth`;
 
 function Login({ onLogin }) {
   const [form, setForm] = useState({
