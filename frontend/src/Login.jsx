@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import brandLogo from "./assets/brand-logo.png";
+import brandLogo from "./assets/lux-logo.svg";
 import { Eye, EyeOff } from "lucide-react";
 
 const API = `${import.meta.env.VITE_API_URL}/auth`;
@@ -149,12 +149,12 @@ function Login({ onLogin }) {
         <div className="mb-8 flex items-center justify-center gap-3">
           <img
             src={brandLogo}
-            alt="7 to 7 logo"
+            alt="LUX logo"
             className="size-14 rounded-xl bg-white object-contain p-0.5 shadow-sm"
           />
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-green-700">
-              7 to 7
+              LUX
             </h1>
             <p className="text-[10px] font-bold tracking-[0.18em] text-green-700/70">
               POS & INVENTORY

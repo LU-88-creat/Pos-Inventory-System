@@ -24,7 +24,7 @@ import POS from "./POS";
 import Sales from "./Sales";
 import StockManagement from "./StockManagement";
 import Suppliers from "./Suppliers";
-import brandLogo from "./assets/brand-logo.png";
+import brandLogo from "./assets/lux-logo.svg";
 import Purchases from "./Purchases";
 import SupplierPaymentHistory from "./SupplierPaymentHistory";
 import Overview from "./Overview";
@@ -211,12 +211,12 @@ export default function Dashboard({ user, token, onLogout }) {
           <div className="flex items-center gap-3">
             <img
               src={brandLogo}
-              alt="7 to 7 logo"
+              alt="LUX logo"
               className="size-10 rounded-xl bg-white object-contain p-0.5"
             />
             <div>
               <h1 className="text-lg font-bold tracking-tight">
-                7 to 7
+                LUX
               </h1>
               <p className="text-[9px] font-bold tracking-[0.18em] text-white/70">
                 POS & INVENTORY
@@ -287,7 +287,7 @@ export default function Dashboard({ user, token, onLogout }) {
           </div>
 
           <p className="mt-4 text-center text-[10px] text-white/60">
-            7 to 7 · Kenya · KES
+            LUX · Kenya · KES
           </p>
         </div>
       </aside>
@@ -483,7 +483,7 @@ export default function Dashboard({ user, token, onLogout }) {
         </main>
 
         <footer className="flex flex-col gap-1 border-t border-slate-200 bg-white px-4 py-4 text-[10px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>7 to 7 POS & Inventory Management</span>
+          <span>LUX POS & Inventory Management</span>
           <span>Currency: Kenyan Shilling (KES)</span>
         </footer>
       </div>

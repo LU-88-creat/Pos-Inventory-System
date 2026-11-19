@@ -1127,7 +1127,7 @@ export default function Sales() {
                 {/* Receipt layout: shown on screen only when printing. */}
                 <div id="historical-receipt" className="hidden print:block">
                   <div className="receipt-paper">
-                    <h2>7 to 7 Supermarket</h2>
+                    <h2>LUX Supermarket</h2>
                     <p className="receipt-subtitle">SALES RECEIPT</p>
                     <hr />
 

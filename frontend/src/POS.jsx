@@ -700,7 +700,7 @@ export default function POS() {
           <section id="pos-receipt" className="my-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
             <div className="border-b border-dashed border-slate-300 pb-5 text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Sales receipt</p>
-              <h2 id="receipt-title" className="mt-2 text-2xl font-extrabold text-slate-900">7 to 7 Supermarket</h2>
+              <h2 id="receipt-title" className="mt-2 text-2xl font-extrabold text-slate-900">LUX Supermarket</h2>
               <p className="mt-1 text-sm text-slate-500">Thank you for shopping with us.</p>
             </div>
 

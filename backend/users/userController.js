@@ -146,7 +146,7 @@ export async function addUser(req, res) {
       await transporter.sendMail({
         from: getMailFrom(),
         to: user.email,
-        subject: "Welcome to 7 to 7 POS — your employee account",
+        subject: "Welcome to LUX POS — your employee account",
         text: [
           `Hello ${user.full_name},`,
           "",
@@ -162,13 +162,13 @@ export async function addUser(req, res) {
           "",
           "If you were not expecting this account, contact your administrator.",
           "",
-          "7 to 7 POS & Inventory",
+          "LUX POS & Inventory",
         ].join("\n"),
         html: `
           <div style="margin:0;padding:32px 16px;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#1e293b;">
             <div style="max-width:560px;margin:0 auto;overflow:hidden;border:1px solid #e2e8f0;border-radius:16px;background-color:#ffffff;">
               <div style="padding:28px 32px;background-color:#15803d;color:#ffffff;">
-                <p style="margin:0 0 8px;font-size:12px;font-weight:bold;letter-spacing:2px;">7 TO 7 · POS &amp; INVENTORY</p>
+                <p style="margin:0 0 8px;font-size:12px;font-weight:bold;letter-spacing:2px;">LUX · POS &amp; INVENTORY</p>
                 <h1 style="margin:0;font-size:24px;line-height:1.3;">Welcome to the team</h1>
               </div>
               <div style="padding:28px 32px;">
@@ -191,7 +191,7 @@ export async function addUser(req, res) {
                 <p style="margin:22px 0 0;color:#64748b;font-size:13px;line-height:1.6;">If you were not expecting this account, contact your administrator.</p>
               </div>
               <div style="padding:18px 32px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;text-align:center;">
-                7 to 7 POS &amp; Inventory Management
+                LUX POS &amp; Inventory Management
               </div>
             </div>
           </div>

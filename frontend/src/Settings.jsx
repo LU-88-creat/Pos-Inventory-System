@@ -405,7 +405,7 @@ export default function Settings({ token }) {
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            Manage your 7 to 7 system configuration.
+            Manage your LUX system configuration.
           </p>
         </div>
 
@@ -999,7 +999,7 @@ export default function Settings({ token }) {
                               receipt_header: e.target.value,
                             })
                           }
-                          placeholder="Welcome to 7 to 7"
+                          placeholder="Welcome to LUX"
                           className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                         />
                       </div>
