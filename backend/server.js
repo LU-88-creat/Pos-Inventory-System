@@ -17,13 +17,28 @@ import activityLogRoutes from "./activityLogs/activityLogRoutes.js";
 
 const app = express();
 
+const configuredOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://pos-inventory-system-ten.vercel.app",
+  ...configuredOrigins,
+]);
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://pos-inventory-system-ten.vercel.app",
-    ],
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origin not allowed by CORS"));
+    },
   })
 );
 app.use(express.json());

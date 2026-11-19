@@ -11,7 +11,6 @@
 //   Printer,
 // } from "lucide-react";
 
-// const SALES_API = "http://localhost:5000/api/sales";
 
 // const formatKES = (amount) =>
 //   new Intl.NumberFormat("en-KE", {
@@ -583,7 +582,7 @@ import {
   Printer,
 } from "lucide-react";
 
-const SALES_API = "http://localhost:5000/api/sales";
+const SALES_API = `${import.meta.env.VITE_API_URL}/sales`;
 
 const formatKES = (amount) =>
   new Intl.NumberFormat("en-KE", {
