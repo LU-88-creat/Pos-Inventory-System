@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ShoppingCart,
   LayoutDashboard,
@@ -30,6 +30,7 @@ import SupplierPaymentHistory from "./SupplierPaymentHistory";
 import Overview from "./Overview";
 import SettingsPage from "./Settings";
 import ActivityLogs from "./ActivityLogs";
+import { apiFetch } from "./api";
 
 
 const modules = [
@@ -93,6 +94,55 @@ const modules = [
 
 export default function Dashboard({ user, token, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [lowStockProducts, setLowStockProducts] = useState([]);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationError, setNotificationError] = useState("");
+  const hasNotificationIssue = Boolean(notificationError);
+
+  const refreshLowStock = useCallback(async () => {
+    try {
+      const response = await apiFetch(
+        `${import.meta.env.VITE_API_URL}/products`
+      );
+      const result = await response.json();
+
+      if (!response.ok || !result.success || !Array.isArray(result.data)) {
+        throw new Error(result.message || "Unable to load stock notifications.");
+      }
+
+      setLowStockProducts(
+        result.data.filter((product) => {
+          const quantity = Number(product.stock_quantity);
+          const reorderLevel = Number(product.reorder_level ?? 5);
+
+          return (
+            Number.isFinite(quantity) &&
+            Number.isFinite(reorderLevel) &&
+            quantity <= reorderLevel
+          );
+        })
+      );
+      setNotificationError("");
+    } catch (error) {
+      setNotificationError(
+        error.message || "Unable to load stock notifications."
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void refreshLowStock();
+    }, 0);
+    const intervalId = window.setInterval(() => {
+      void refreshLowStock();
+    }, 60_000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, [refreshLowStock, token]);
   
   const [activeModule, setActiveModule] = useState(() => {
     const preferredModules = {
@@ -272,14 +322,122 @@ export default function Dashboard({ user, token, onLogout }) {
               KES · KSh
             </span>
 
-            <button
-              disabled
-              title="Notifications coming soon"
-              aria-label="Notifications"
-              className="grid size-9 place-items-center rounded-lg text-slate-400 opacity-60"
-            >
-              <Bell size={19} />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setNotificationOpen((open) => !open);
+                  void refreshLowStock();
+                }}
+                title={
+                  hasNotificationIssue
+                    ? "Unable to load notifications"
+                    : lowStockProducts.length
+                    ? `${lowStockProducts.length} low-stock notification${lowStockProducts.length === 1 ? "" : "s"}`
+                    : "Notifications"
+                }
+                aria-label={`Notifications${hasNotificationIssue ? ", unable to load alerts" : lowStockProducts.length ? `, ${lowStockProducts.length} low-stock items` : ""}`}
+                aria-expanded={notificationOpen}
+                aria-haspopup="dialog"
+                className={`relative grid size-9 place-items-center rounded-lg transition ${
+                  hasNotificationIssue
+                    ? "text-red-700 hover:bg-red-50"
+                    : lowStockProducts.length
+                    ? "text-amber-700 hover:bg-amber-50"
+                    : "text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                <Bell size={19} />
+                {(lowStockProducts.length > 0 || hasNotificationIssue) && (
+                  <span
+                    className={`absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-bold leading-none text-white ${
+                      hasNotificationIssue ? "bg-red-600" : "bg-amber-600"
+                    }`}
+                  >
+                    {hasNotificationIssue
+                      ? "!"
+                      : lowStockProducts.length > 99
+                        ? "99+"
+                        : lowStockProducts.length}
+                  </span>
+                )}
+              </button>
+
+              {notificationOpen && (
+                <section
+                  role="dialog"
+                  aria-label="Notifications"
+                  className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900">
+                        Notifications
+                      </h2>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {lowStockProducts.length
+                          ? `${lowStockProducts.length} product${lowStockProducts.length === 1 ? "" : "s"} at or below reorder level`
+                          : "Inventory alerts"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNotificationOpen(false)}
+                      aria-label="Close notifications"
+                      className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {notificationError ? (
+                    <p role="alert" className="px-4 py-4 text-sm text-red-700">
+                      {notificationError}
+                    </p>
+                  ) : lowStockProducts.length ? (
+                    <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
+                      {lowStockProducts.map((product) => (
+                        <li
+                          key={product.id}
+                          className="flex items-start justify-between gap-3 px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-800">
+                              {product.product_name}
+                            </p>
+                            <p className="mt-1 text-xs text-amber-700">
+                              Low stock · {Number(product.stock_quantity)}{" "}
+                              {product.unit_of_measure || "units"} remaining
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-right text-[11px] text-slate-500">
+                            Reorder at{" "}
+                            {Number(product.reorder_level ?? 5)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="px-4 py-6 text-center text-sm text-slate-500">
+                      No low-stock products.
+                    </p>
+                  )}
+
+                  {["administrator", "storekeeper"].includes(user?.role) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleModuleChange("Stock Management");
+                        setNotificationOpen(false);
+                      }}
+                      className="w-full border-t border-slate-100 px-4 py-3 text-left text-xs font-semibold text-green-700 hover:bg-green-50"
+                    >
+                      Open Stock Management
+                    </button>
+                  )}
+                </section>
+              )}
+            </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="hidden text-right sm:block">
