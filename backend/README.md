@@ -23,4 +23,6 @@ The same SMTP settings are used to email login credentials when an administrator
 
 The POS sends the STK request from the backend, checks the callback-backed payment status, and only then completes the sale and deducts stock. Daraja requires whole-shilling STK amounts; the POS rounds to the nearest shilling and shows the rounding adjustment on the receipt.
 
+If payment is not confirmed within three minutes, the backend expires the attempt and cancels the pending sale. This updates the local sale state; the STK endpoint does not provide a way to remotely retract a prompt already delivered to the customer's phone.
+
 Use `MPESA_ENV=sandbox` while testing. Do not switch to production until production Daraja credentials, shortcode, passkey, and a production-reachable HTTPS callback URL are configured.

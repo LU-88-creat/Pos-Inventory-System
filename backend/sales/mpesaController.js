@@ -14,6 +14,7 @@ import { getSaleById } from "./salesModel.js";
 const lastStkQueryAt = new Map();
 const STK_QUERY_INTERVAL_MS = 10 * 1000;
 const STK_QUERY_INITIAL_DELAY_SECONDS = 5;
+const STK_PROMPT_TIMEOUT_SECONDS = 3 * 60;
 
 async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) {
   const connection = await db.getConnection();
@@ -30,7 +31,10 @@ async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) 
     );
     const transaction = transactions[0];
 
-    if (!transaction || transaction.status !== "pending") {
+    if (
+      !transaction ||
+      !["pending", "initiating"].includes(transaction.status)
+    ) {
       await connection.commit();
       return;
     }
@@ -65,7 +69,7 @@ async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) 
        SET status = 'failed',
            result_code = ?,
            result_description = ?
-       WHERE id = ? AND status = 'pending'`,
+       WHERE id = ? AND status IN ('pending', 'initiating')`,
       [resultCode, String(resultDescription).slice(0, 255), transaction.id]
     );
 
@@ -75,6 +79,23 @@ async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) 
     throw error;
   } finally {
     connection.release();
+  }
+}
+
+export async function expireStkPushes() {
+  const [attempts] = await db.execute(
+    `SELECT id
+     FROM mpesa_transactions
+     WHERE status IN ('pending', 'initiating')
+       AND created_at <= DATE_SUB(NOW(), INTERVAL ${STK_PROMPT_TIMEOUT_SECONDS} SECOND)`
+  );
+
+  for (const attempt of attempts) {
+    await markMpesaAttemptFailed(
+      attempt.id,
+      null,
+      "M-Pesa prompt expired after 3 minutes."
+    );
   }
 }
 
@@ -306,12 +327,24 @@ export async function getMpesaStatus(req, res) {
     );
 
     let attempt = attempts[0] ?? null;
+    let shouldReloadStatus = false;
 
     const lastQueryTime = attempt
       ? lastStkQueryAt.get(attempt.id) ?? 0
       : 0;
 
     if (
+      attempt &&
+      ["pending", "initiating"].includes(attempt.status) &&
+      Number(attempt.age_seconds) >= STK_PROMPT_TIMEOUT_SECONDS
+    ) {
+      await markMpesaAttemptFailed(
+        attempt.id,
+        null,
+        "M-Pesa prompt expired after 3 minutes."
+      );
+      shouldReloadStatus = true;
+    } else if (
       attempt &&
       attempt.status === "pending" &&
       attempt.checkout_request_id &&
@@ -346,6 +379,10 @@ export async function getMpesaStatus(req, res) {
         );
       }
 
+      shouldReloadStatus = true;
+    }
+
+    if (shouldReloadStatus) {
       sale = await getSaleById(saleId);
       const [updatedAttempts] = await db.execute(
         `SELECT id, status, requested_amount, result_code,

@@ -197,7 +197,7 @@ export default function POS() {
             setMpesaStatusMessage("");
             setCart([]);
             setNotice(
-              `M-Pesa payment was cancelled. Sale #${sale.id} is cancelled; you can start a new sale.`
+              `${attempt.result_description || "M-Pesa payment was cancelled."} Sale #${sale.id} is cancelled; you can start a new sale.`
             );
           }
           return;

@@ -13,6 +13,7 @@ import authRoutes from "./auth/authRoutes.js";
 import userRoutes from "./users/userRoutes.js";
 import businessSettingsRoutes from "./settings/businessSettingsRoutes.js";
 import activityLogRoutes from "./activityLogs/activityLogRoutes.js";
+import { expireStkPushes } from "./sales/mpesaController.js";
 
 
 const app = express();
@@ -81,6 +82,14 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+
+  const expireStkPushesSafely = () => {
+    expireStkPushes().catch((error) => {
+      console.error("Expire M-Pesa STK prompts error:", error.message);
+    });
+  };
+  expireStkPushesSafely();
+  setInterval(expireStkPushesSafely, 15 * 1000);
 
   db.query("SELECT 1")
     .then(() => console.log("Database connected"))
