@@ -5,6 +5,7 @@ import {
   createUser,
   getAllUsers,
   getUserById,
+  updateUserName,
   updateUserStatus,
   deleteUserById,
   getUserPasswordHash,
@@ -240,6 +241,73 @@ export async function addUser(req, res) {
     return res.status(500).json({
       success: false,
       message: "Unable to create employee account.",
+    });
+  }
+}
+
+export async function changeUserName(req, res) {
+  try {
+    const userId = Number(req.params.id);
+    const { full_name } = req.body;
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid employee ID.",
+      });
+    }
+
+    if (typeof full_name !== "string" || !full_name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Employee name is required.",
+      });
+    }
+
+    const previousUser = await getUserById(userId);
+
+    if (!previousUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found.",
+      });
+    }
+
+    const user = await updateUserName(userId, full_name.trim());
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found.",
+      });
+    }
+
+    try {
+      await createActivityLog({
+        user_id: req.user.id,
+        employee_name: req.user.full_name,
+        username: req.user.username,
+        action: "EMPLOYEE_NAME_UPDATED",
+        entity_type: "user",
+        entity_id: user.id,
+        description: `${req.user.full_name} changed employee name from ${previousUser.full_name} to ${user.full_name} (${user.username}).`,
+        ip_address: req.ip,
+      });
+    } catch (logError) {
+      console.error("Employee name activity logging error:", logError.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Employee name updated successfully.",
+      user,
+    });
+  } catch (error) {
+    console.error("Change employee name error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update employee name.",
     });
   }
 }

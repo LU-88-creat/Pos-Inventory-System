@@ -133,6 +133,17 @@ export async function updateUserStatus(id, is_active) {
   return getUserById(id);
 }
 
+export async function updateUserName(id, full_name) {
+  await db.execute(
+    `UPDATE users
+     SET full_name = ?
+     WHERE id = ?`,
+    [full_name, id]
+  );
+
+  return getUserById(id);
+}
+
 export async function deleteUserById(id) {
   const [result] = await db.execute(
     `DELETE FROM users

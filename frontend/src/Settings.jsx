@@ -51,6 +51,9 @@ export default function Settings({ token }) {
   const [formSuccess, setFormSuccess] = useState("");
   const [formSuccessIsWarning, setFormSuccessIsWarning] = useState(false);
   const [updatingEmployeeId, setUpdatingEmployeeId] = useState(null);
+  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
+  const [editingEmployeeName, setEditingEmployeeName] = useState("");
+  const [savingEmployeeName, setSavingEmployeeName] = useState(false);
   const [deletingEmployeeId, setDeletingEmployeeId] = useState(null);
   const [statusError, setStatusError] = useState("");
   const [statusSuccess, setStatusSuccess] = useState("");
@@ -203,9 +206,44 @@ export default function Settings({ token }) {
     setSavingEmployee(false);
   }
   }
-  
-  async function handleToggleEmployeeStatus(employee) {
-    const newStatus = employee.is_active ? 0 : 1;
+
+    async function handleSaveEmployeeName(event, employee) {
+      event.preventDefault();
+      setSavingEmployeeName(true);
+      setStatusError("");
+      setStatusSuccess("");
+
+      try {
+        const response = await fetch(`${API_BASE}/users/${employee.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ full_name: editingEmployeeName }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to update employee name.");
+        }
+
+        setEmployees((previous) =>
+          previous.map((item) => item.id === employee.id ? data.user : item)
+        );
+        setEditingEmployeeId(null);
+        setEditingEmployeeName("");
+        setStatusSuccess(data.message);
+      } catch (error) {
+        setStatusError(error.message);
+      } finally {
+        setSavingEmployeeName(false);
+      }
+    }
+
+    async function handleToggleEmployeeStatus(employee) {
+      const newStatus = employee.is_active ? 0 : 1;
 
     const action = newStatus ? "activate" : "deactivate";
 
@@ -682,7 +720,42 @@ export default function Settings({ token }) {
                             {employees.map((employee) => (
                                 <tr key={employee.id} className="border-t border-slate-100">
                                     <td className="p-3 font-medium">
-                                        {employee.full_name}
+                                      {editingEmployeeId === employee.id ? (
+                                        <form
+                                          onSubmit={(event) => handleSaveEmployeeName(event, employee)}
+                                          className="flex flex-wrap items-center gap-2"
+                                        >
+                                          <input
+                                            type="text"
+                                            required
+                                            autoFocus
+                                            value={editingEmployeeName}
+                                            onChange={(event) => setEditingEmployeeName(event.target.value)}
+                                            aria-label={`Employee name for ${employee.username}`}
+                                            className="min-h-9 min-w-32 rounded-lg border border-slate-300 px-2 py-1 text-sm font-normal outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                                          />
+                                          <button
+                                            type="submit"
+                                            disabled={savingEmployeeName}
+                                            className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                                          >
+                                            {savingEmployeeName ? "Saving..." : "Save"}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={savingEmployeeName}
+                                            onClick={() => {
+                                              setEditingEmployeeId(null);
+                                              setEditingEmployeeName("");
+                                            }}
+                                            className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </form>
+                                      ) : (
+                                        employee.full_name
+                                      )}
                                     </td>
 
                                     <td className="p-3">
@@ -707,8 +780,22 @@ export default function Settings({ token }) {
                                       <div className="flex flex-wrap gap-2">
                                       <button
                                         type="button"
+                                        onClick={() => {
+                                          setEditingEmployeeId(employee.id);
+                                          setEditingEmployeeName(employee.full_name);
+                                          setStatusError("");
+                                          setStatusSuccess("");
+                                        }}
+                                        disabled={editingEmployeeId !== null || savingEmployeeName || deletingEmployeeId === employee.id || updatingEmployeeId === employee.id}
+                                        aria-label={`Edit ${employee.full_name}'s name`}
+                                        className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                                      >
+                                        Edit name
+                                      </button>
+                                      <button
+                                        type="button"
                                         onClick={() => handleToggleEmployeeStatus(employee)}
-                                        disabled={updatingEmployeeId === employee.id || deletingEmployeeId === employee.id}
+                                        disabled={updatingEmployeeId === employee.id || deletingEmployeeId === employee.id || editingEmployeeId === employee.id}
                                         className={`rounded-xl px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition disabled:opacity-60 ${
                                           employee.is_active
                                             ? "bg-red-600 hover:bg-red-700"
@@ -724,7 +811,7 @@ export default function Settings({ token }) {
                                       <button
                                         type="button"
                                         onClick={() => handleDeleteEmployee(employee)}
-                                        disabled={deletingEmployeeId === employee.id || updatingEmployeeId === employee.id}
+                                        disabled={deletingEmployeeId === employee.id || updatingEmployeeId === employee.id || editingEmployeeId === employee.id}
                                         aria-label={`Delete ${employee.full_name}'s account`}
                                         className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 shadow-sm transition hover:bg-red-50 disabled:opacity-60"
                                       >

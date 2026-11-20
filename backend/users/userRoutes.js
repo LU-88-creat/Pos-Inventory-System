@@ -8,6 +8,7 @@ import {
 import {
   listUsers,
   addUser,
+  changeUserName,
   changeUserStatus,
   deleteUser,
   changePassword,
@@ -29,6 +30,9 @@ router.get("/", listUsers);
 
 // Create a new employee.
 router.post("/", addUser);
+
+// Update an employee's name.
+router.patch("/:id", changeUserName);
 
 // Activate or deactivate an employee.
 router.patch("/:id/status", changeUserStatus);
