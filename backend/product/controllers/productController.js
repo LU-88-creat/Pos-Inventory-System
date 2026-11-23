@@ -222,6 +222,7 @@ export async function addProduct(req, res) {
     // Record product creation.
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -283,6 +284,7 @@ export async function editProduct(req, res) {
     // Record product update.
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -342,6 +344,7 @@ export async function changeProductStatus(req, res) {
 
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -442,6 +445,7 @@ export async function removeProduct(req, res) {
     // Record product deactivation through the delete operation.
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,

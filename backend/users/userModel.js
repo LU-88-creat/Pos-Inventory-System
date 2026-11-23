@@ -21,14 +21,15 @@ async function executeUserRead(sql, values) {
   }
 }
 
-// Find an employee account using their username.
-export async function getUserByUsername(username) {
+// Find an employee account within a specific business.
+export async function getUserByUsername(username, businessId) {
   const [rows] = await db.execute(
     `SELECT *
      FROM users
      WHERE username = ?
+       AND business_id = ?
      LIMIT 1`,
-    [username]
+    [username, businessId]
   );
 
   return rows[0] || null;
@@ -52,6 +53,7 @@ export async function getUserById(id) {
   const [rows] = await executeUserRead(
     `SELECT
        id,
+       business_id,
        full_name,
        username,
        email,

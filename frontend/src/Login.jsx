@@ -7,6 +7,7 @@ const API = `${import.meta.env.VITE_API_URL}/auth`;
 
 function Login({ onLogin }) {
   const [form, setForm] = useState({
+    business_email: "",
     username: "",
     password: "",
   });
@@ -192,6 +193,22 @@ function Login({ onLogin }) {
 
         {view === "login" && (
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Business Email
+              </label>
+
+              <input
+                type="email"
+                name="business_email"
+                value={form.business_email}
+                onChange={handleChange}
+                required
+                autoComplete="organization"
+                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                placeholder="Enter your business email"
+              />
+            </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Username

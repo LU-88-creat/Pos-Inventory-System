@@ -103,6 +103,7 @@ export async function addPurchasePayment(req, res) {
 
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,

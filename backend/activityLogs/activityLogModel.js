@@ -1,7 +1,9 @@
+
 import db from "../config/db.js";
 
 // Record an employee activity.
 export async function createActivityLog({
+  business_id,
   user_id = null,
   employee_name = null,
   username = null,
@@ -13,6 +15,7 @@ export async function createActivityLog({
 }) {
   const [result] = await db.execute(
     `INSERT INTO activity_logs (
+      business_id,
       user_id,
       employee_name,
       username,
@@ -21,8 +24,9 @@ export async function createActivityLog({
       entity_id,
       description,
       ip_address
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
+      business_id,
       user_id,
       employee_name,
       username,

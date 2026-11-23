@@ -333,6 +333,7 @@ export async function completeSale(req, res) {
     // Record successful sale completion.
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -451,6 +452,7 @@ export async function cancelSale(req, res) {
     // Record successful sale cancellation.
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,

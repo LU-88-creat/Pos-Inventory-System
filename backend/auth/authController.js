@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { createHash, randomBytes } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { getUserByEmail, getUserByUsername } from "../users/userModel.js";
+import { getBusinessByEmail } from "../models/businessModel.js";
 import { createActivityLog } from "../activityLogs/activityLogModel.js";
 import { getMailFrom, getMailTransport } from "../config/mailer.js";
 import {
@@ -13,28 +14,45 @@ import {
 
 export async function login(req, res) {
   try {
-    const { username, password } = req.body;
+    const { business_email, username, password } = req.body;
 
     // Validate login fields.
     if (
+      typeof business_email !== "string" ||
       typeof username !== "string" ||
       typeof password !== "string" ||
+      !business_email.trim() ||
       !username.trim() ||
       !password
     ) {
       return res.status(400).json({
         success: false,
-        message: "Username and password are required.",
+        message: "Business email, username and password are required.",
       });
     }
 
-    // Find the employee account.
-    const user = await getUserByUsername(username.trim());
+    // Find the business using its registered email.
+    const business = await getBusinessByEmail(
+      business_email.trim().toLowerCase()
+    );
+
+    if (!business || !business.is_active) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid business email, username or password.",
+      });
+    }
+
+    // Find the employee within the identified business.
+    const user = await getUserByUsername(
+      username.trim(),
+      business.id
+    );
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid username or password.",
+        message: "Invalid business email, username or password.",
       });
     }
 
@@ -73,6 +91,7 @@ export async function login(req, res) {
     const token = jwt.sign(
       {
         id: user.id,
+        business_id: business.id,
         role: user.role,
       },
       process.env.JWT_SECRET,
@@ -84,6 +103,7 @@ export async function login(req, res) {
     // Record successful employee login.
     try {
       await createActivityLog({
+        business_id: business.id,
         user_id: user.id,
         employee_name: user.full_name,
         username: user.username,
@@ -104,6 +124,7 @@ export async function login(req, res) {
       token,
       user: {
         id: user.id,
+        business_id: business.id,
         full_name: user.full_name,
         username: user.username,
         email: user.email,

@@ -52,6 +52,7 @@ export async function authenticateToken(req, res, next) {
 
     req.user = {
       id: user.id,
+      business_id: user.business_id,
       full_name: user.full_name,
       username: user.username,
       email: user.email,
