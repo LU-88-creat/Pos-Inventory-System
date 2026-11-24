@@ -206,6 +206,7 @@ export async function addUser(req, res) {
     // Record employee account creation.
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -284,6 +285,7 @@ export async function changeUserName(req, res) {
 
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -356,6 +358,7 @@ export async function changeUserStatus(req, res) {
 
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -423,6 +426,7 @@ export async function deleteUser(req, res) {
 
     try {
       await createActivityLog({
+        business_id: req.user.business_id,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
