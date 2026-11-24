@@ -81,7 +81,10 @@ function Login({ onLogin }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({
+          business_email: form.business_email,
+          email,
+        }),
       });
       const data = await response.json();
 
@@ -278,6 +281,21 @@ function Login({ onLogin }) {
 
         {view === "forgot" && (
           <form onSubmit={handleForgotPassword} className="space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Business Email
+              </label>
+              <input
+                type="email"
+                name="business_email"
+                value={form.business_email}
+                onChange={handleChange}
+                required
+                autoComplete="organization"
+                className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                placeholder="Enter your business email"
+              />
+            </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Email address

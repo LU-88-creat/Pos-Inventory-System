@@ -23,7 +23,7 @@ async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) 
     await connection.beginTransaction();
 
     const [transactions] = await connection.execute(
-      `SELECT id, sale_id, status
+      `SELECT id, sale_id, business_id, status
        FROM mpesa_transactions
        WHERE id = ?
        FOR UPDATE`,
@@ -40,11 +40,11 @@ async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) 
     }
 
     const [sales] = await connection.execute(
-      `SELECT id, payment_method, payment_status
+      `SELECT id, business_id, payment_method, payment_status
        FROM sales
-       WHERE id = ?
+       WHERE id = ? AND business_id = ?
        FOR UPDATE`,
-      [transaction.sale_id]
+      [transaction.sale_id, transaction.business_id]
     );
     const sale = sales[0];
 
@@ -56,8 +56,8 @@ async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) 
       await connection.execute(
         `UPDATE sales
          SET payment_status = 'cancelled'
-         WHERE id = ? AND payment_status = 'pending'`,
-        [sale.id]
+         WHERE id = ? AND business_id = ? AND payment_status = 'pending'`,
+        [sale.id, sale.business_id]
       );
     } else if (sale.payment_status !== "cancelled") {
       await connection.commit();
@@ -69,8 +69,8 @@ async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) 
        SET status = 'failed',
            result_code = ?,
            result_description = ?
-       WHERE id = ? AND status IN ('pending', 'initiating')`,
-      [resultCode, String(resultDescription).slice(0, 255), transaction.id]
+       WHERE id = ? AND business_id = ? AND status IN ('pending', 'initiating')`,
+      [resultCode, String(resultDescription).slice(0, 255), transaction.id, transaction.business_id]
     );
 
     await connection.commit();
@@ -130,9 +130,9 @@ export async function startStkPush(req, res) {
     const [sales] = await connection.execute(
       `SELECT id, payment_method, payment_status, total_amount
        FROM sales
-       WHERE id = ?
+       WHERE id = ? AND business_id = ?
        FOR UPDATE`,
-      [saleId]
+      [saleId, req.user.business_id]
     );
     const sale = sales[0];
 
@@ -157,11 +157,11 @@ export async function startStkPush(req, res) {
     const [attempts] = await connection.execute(
       `SELECT id, status, requested_amount
        FROM mpesa_transactions
-       WHERE sale_id = ?
+       WHERE sale_id = ? AND business_id = ?
        ORDER BY id DESC
        LIMIT 1
        FOR UPDATE`,
-      [saleId]
+      [saleId, req.user.business_id]
     );
 
     if (["pending", "initiating"].includes(attempts[0]?.status)) {
@@ -192,13 +192,14 @@ export async function startStkPush(req, res) {
 
     const [insertResult] = await connection.execute(
       `INSERT INTO mpesa_transactions (
+         business_id,
          sale_id,
          phone_number,
          requested_amount,
          status
        )
-       VALUES (?, ?, ?, 'initiating')`,
-      [saleId, phoneNumber, amount]
+       VALUES (?, ?, ?, ?, 'initiating')`,
+      [req.user.business_id, saleId, phoneNumber, amount]
     );
     attemptId = insertResult.insertId;
     await connection.commit();
@@ -305,7 +306,7 @@ export async function getMpesaStatus(req, res) {
   }
 
   try {
-    let sale = await getSaleById(saleId);
+    let sale = await getSaleById(saleId, req.user.business_id);
 
     if (!sale) {
       return res.status(404).json({
@@ -320,10 +321,10 @@ export async function getMpesaStatus(req, res) {
               checkout_request_id,
               TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age_seconds
        FROM mpesa_transactions
-       WHERE sale_id = ?
+       WHERE sale_id = ? AND business_id = ?
        ORDER BY id DESC
        LIMIT 1`,
-      [saleId]
+      [saleId, req.user.business_id]
     );
 
     let attempt = attempts[0] ?? null;
@@ -383,17 +384,17 @@ export async function getMpesaStatus(req, res) {
     }
 
     if (shouldReloadStatus) {
-      sale = await getSaleById(saleId);
+      sale = await getSaleById(saleId, req.user.business_id);
       const [updatedAttempts] = await db.execute(
         `SELECT id, status, requested_amount, result_code,
                 result_description, mpesa_receipt_number,
                 checkout_request_id,
                 TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age_seconds
          FROM mpesa_transactions
-         WHERE sale_id = ?
+         WHERE sale_id = ? AND business_id = ?
          ORDER BY id DESC
          LIMIT 1`,
-        [saleId]
+        [saleId, req.user.business_id]
       );
       attempt = updatedAttempts[0] ?? null;
     }
@@ -440,7 +441,7 @@ export async function handleStkCallback(req, res) {
     await connection.beginTransaction();
 
     const [transactions] = await connection.execute(
-      `SELECT id, sale_id, status, phone_number, requested_amount
+      `SELECT id, sale_id, business_id, status, phone_number, requested_amount
        FROM mpesa_transactions
        WHERE checkout_request_id = ?
        FOR UPDATE`,
@@ -478,11 +479,11 @@ export async function handleStkCallback(req, res) {
     const resultDescription = String(callback.ResultDesc ?? "").slice(0, 255);
 
     const [sales] = await connection.execute(
-      `SELECT id, payment_method, payment_status
+      `SELECT id, business_id, payment_method, payment_status
        FROM sales
-       WHERE id = ?
+       WHERE id = ? AND business_id = ?
        FOR UPDATE`,
-      [transaction.sale_id]
+      [transaction.sale_id, transaction.business_id]
     );
     const sale = sales[0];
 
@@ -512,8 +513,8 @@ export async function handleStkCallback(req, res) {
       await connection.execute(
         `UPDATE sales
          SET payment_status = 'cancelled'
-         WHERE id = ? AND payment_status = 'pending'`,
-        [sale.id]
+         WHERE id = ? AND business_id = ? AND payment_status = 'pending'`,
+        [sale.id, sale.business_id]
       );
     } else if (sale.payment_status !== "cancelled") {
       throw new Error(
@@ -527,13 +528,14 @@ export async function handleStkCallback(req, res) {
            result_code = ?,
            result_description = ?,
            mpesa_receipt_number = ?
-       WHERE id = ?`,
+       WHERE id = ? AND business_id = ?`,
       [
         resultCode === 0 ? "completed" : "failed",
         resultCode,
         resultDescription,
         receiptNumber ? String(receiptNumber).slice(0, 32) : null,
         transaction.id,
+        transaction.business_id,
       ]
     );
 

@@ -14,9 +14,9 @@ export async function fulfillSale(connection, saleId, sale) {
   const [items] = await connection.execute(
     `SELECT product_id, quantity
      FROM sale_items
-     WHERE sale_id = ?
+     WHERE sale_id = ? AND business_id = ?
      ORDER BY id ASC`,
-    [saleId]
+    [saleId, sale.business_id]
   );
 
   if (items.length === 0) {
@@ -30,9 +30,9 @@ export async function fulfillSale(connection, saleId, sale) {
     const [products] = await connection.execute(
       `SELECT id, product_name, stock_quantity
        FROM products
-       WHERE id = ? AND is_active = TRUE
+       WHERE id = ? AND business_id = ? AND is_active = TRUE
        FOR UPDATE`,
-      [item.product_id]
+      [item.product_id, sale.business_id]
     );
 
     if (products.length === 0) {
@@ -58,8 +58,8 @@ export async function fulfillSale(connection, saleId, sale) {
     const [result] = await connection.execute(
       `UPDATE products
        SET stock_quantity = ?
-       WHERE id = ? AND stock_quantity >= ?`,
-      [newStock, product.id, quantity]
+       WHERE id = ? AND business_id = ? AND stock_quantity >= ?`,
+      [newStock, product.id, sale.business_id, quantity]
     );
 
     if (result.affectedRows !== 1) {
@@ -71,6 +71,7 @@ export async function fulfillSale(connection, saleId, sale) {
     }
 
     await createStockMovement(connection, {
+      business_id: sale.business_id,
       product_id: product.id,
       movement_type: "sale",
       quantity,
@@ -85,7 +86,7 @@ export async function fulfillSale(connection, saleId, sale) {
   await connection.execute(
     `UPDATE sales
      SET payment_status = 'completed'
-     WHERE id = ? AND payment_status = 'pending'`,
-    [saleId]
+     WHERE id = ? AND business_id = ? AND payment_status = 'pending'`,
+    [saleId, sale.business_id]
   );
 }

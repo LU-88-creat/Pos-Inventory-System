@@ -35,6 +35,7 @@ export async function updateProductStock(
 // Record a stock movement using the same transaction connection.
 export async function createStockMovement(connection, movement) {
   const {
+    business_id,
     product_id,
     movement_type,
     quantity,
@@ -47,6 +48,7 @@ export async function createStockMovement(connection, movement) {
 
   const [result] = await connection.execute(
     `INSERT INTO stock_movements (
+      business_id,
       product_id,
       movement_type,
       quantity,
@@ -56,8 +58,9 @@ export async function createStockMovement(connection, movement) {
       reference_id,
       notes
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
+      business_id,
       product_id,
       movement_type,
       quantity,

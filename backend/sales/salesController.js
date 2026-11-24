@@ -42,7 +42,7 @@ export async function getSale(req, res) {
       });
     }
 
-    const sale = await getSaleById(id);
+    const sale = await getSaleById(id, req.user.business_id);
 
     if (!sale) {
       return res.status(404).json({
@@ -142,9 +142,9 @@ export async function addSale(req, res) {
         `SELECT id, product_name, selling_price, cost_price, stock_quantity,
                 tax_rate, discount_rate
          FROM products
-         WHERE id = ? AND is_active = TRUE
+         WHERE id = ? AND business_id = ? AND is_active = TRUE
          FOR UPDATE`,
-        [Number(item.product_id)]
+        [Number(item.product_id), req.user.business_id]
       );
 
       if (products.length === 0) {
@@ -205,8 +205,8 @@ export async function addSale(req, res) {
 
     if (customer_id !== null) {
       const [customers] = await connection.execute(
-        "SELECT id FROM customers WHERE id = ? AND is_active = TRUE",
-        [Number(customer_id)]
+        "SELECT id FROM customers WHERE id = ? AND business_id = ? AND is_active = TRUE",
+        [Number(customer_id), req.user.business_id]
       );
 
       if (customers.length === 0) {
@@ -215,6 +215,7 @@ export async function addSale(req, res) {
     }
 
     const saleData = {
+      business_id: req.user.business_id,
       receipt_number: receipt_number.trim(),
       subtotal: calculatedSubtotal,
       discount_amount: totalDiscount,
@@ -231,6 +232,7 @@ export async function addSale(req, res) {
 
     for (const item of preparedItems) {
       await addSaleItem(connection, {
+        business_id: req.user.business_id,
         sale_id: saleId,
         ...item,
       });
@@ -295,11 +297,11 @@ export async function completeSale(req, res) {
     await connection.beginTransaction();
 
     const [sales] = await connection.execute(
-      `SELECT id, payment_method, payment_status
+      `SELECT id, business_id, payment_method, payment_status
        FROM sales
-       WHERE id = ?
+       WHERE id = ? AND business_id = ?
        FOR UPDATE`,
-      [id]
+      [id, req.user.business_id]
     );
 
     if (sales.length === 0) {
@@ -398,11 +400,11 @@ export async function cancelSale(req, res) {
     await connection.beginTransaction();
 
     const [sales] = await connection.execute(
-      `SELECT id, payment_status
+      `SELECT id, business_id, payment_status
        FROM sales
-       WHERE id = ?
+       WHERE id = ? AND business_id = ?
        FOR UPDATE`,
-      [id]
+      [id, req.user.business_id]
     );
 
     if (sales.length === 0) {
@@ -426,9 +428,9 @@ export async function cancelSale(req, res) {
     const [pendingMpesaAttempts] = await connection.execute(
       `SELECT id
        FROM mpesa_transactions
-       WHERE sale_id = ? AND status = 'pending'
+       WHERE sale_id = ? AND business_id = ? AND status = 'pending'
        LIMIT 1`,
-      [id]
+      [id, req.user.business_id]
     );
 
     if (pendingMpesaAttempts.length > 0) {
@@ -443,8 +445,8 @@ export async function cancelSale(req, res) {
     await connection.execute(
       `UPDATE sales
        SET payment_status = 'cancelled'
-       WHERE id = ?`,
-      [id]
+       WHERE id = ? AND business_id = ?`,
+      [id, req.user.business_id]
     );
 
     await connection.commit();

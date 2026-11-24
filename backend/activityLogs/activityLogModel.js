@@ -13,30 +13,61 @@ export async function createActivityLog({
   description = null,
   ip_address = null,
 }) {
-  const [result] = await db.execute(
-    `INSERT INTO activity_logs (
-      business_id,
-      user_id,
-      employee_name,
-      username,
-      action,
-      entity_type,
-      entity_id,
-      description,
-      ip_address
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      business_id,
-      user_id,
-      employee_name,
-      username,
-      action,
-      entity_type,
-      entity_id,
-      description,
-      ip_address,
-    ]
-  );
+  let result;
+
+  try {
+    [result] = await db.execute(
+      `INSERT INTO activity_logs (
+        business_id,
+        user_id,
+        employee_name,
+        username,
+        action,
+        entity_type,
+        entity_id,
+        description,
+        ip_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        business_id,
+        user_id,
+        employee_name,
+        username,
+        action,
+        entity_type,
+        entity_id,
+        description,
+        ip_address,
+      ]
+    );
+  } catch (error) {
+    if (error.code !== "ER_BAD_FIELD_ERROR") {
+      throw error;
+    }
+
+    [result] = await db.execute(
+      `INSERT INTO activity_logs (
+        user_id,
+        employee_name,
+        username,
+        action,
+        entity_type,
+        entity_id,
+        description,
+        ip_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        user_id,
+        employee_name,
+        username,
+        action,
+        entity_type,
+        entity_id,
+        description,
+        ip_address,
+      ]
+    );
+  }
 
   return result.insertId;
 }

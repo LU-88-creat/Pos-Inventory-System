@@ -1,6 +1,8 @@
 
 import jwt from "jsonwebtoken";
 import { getUserById } from "../users/userModel.js";
+import { getBusinessById } from "../models/businessModel.js";
+import { getBusinessSubscription } from "../models/subscriptionModel.js";
 
 const TRANSIENT_DATABASE_ERRORS = new Set([
   "ECONNRESET",
@@ -41,7 +43,47 @@ export async function authenticateToken(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await getUserById(decoded.id);
+    // Validate the employee and business IDs in the token.
+    if (
+      !decoded ||
+      typeof decoded !== "object" ||
+      !Number.isSafeInteger(decoded.id) ||
+      decoded.id <= 0 ||
+      !Number.isSafeInteger(decoded.business_id) ||
+      decoded.business_id <= 0
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token. Please log in again.",
+      });
+    }
+
+    // Confirm that the employee's business still exists and is active.
+    const business = await getBusinessById(decoded.business_id);
+
+    if (!business || !business.is_active) {
+      return res.status(403).json({
+        success: false,
+        message: "This business account is inactive. Please contact Lux support.",
+      });
+    }
+
+    // Verify the business has an accessible subscription.
+    const subscription = await getBusinessSubscription(
+      decoded.business_id
+    );
+
+    if (!subscription || !subscription.has_access) {
+      return res.status(403).json({
+        success: false,
+        message: "Your Lux subscription is inactive or has expired. Please renew your subscription or contact Lux support.",
+      });
+    }
+
+    const user = await getUserById(
+      decoded.id,
+      decoded.business_id
+    );
 
     if (!user || !user.is_active) {
       return res.status(401).json({

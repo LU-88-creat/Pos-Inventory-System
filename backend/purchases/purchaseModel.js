@@ -297,18 +297,18 @@ export async function orderPurchase(id) {
   }
 }
 
-export async function receivePurchase(id, receivedItems) {
+export async function receivePurchase(id, receivedItems, businessId) {
   const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
 
     const [purchases] = await connection.execute(
-      `SELECT id, status
+      `SELECT id, business_id, status
        FROM purchases
-       WHERE id = ?
+       WHERE id = ? AND business_id = ?
        FOR UPDATE`,
-      [id]
+      [id, businessId]
     );
 
     if (purchases.length === 0) {
@@ -400,9 +400,9 @@ export async function receivePurchase(id, receivedItems) {
       const [products] = await connection.execute(
         `SELECT id, stock_quantity
          FROM products
-         WHERE id = ? AND is_active = 1
+         WHERE id = ? AND business_id = ? AND is_active = 1
          FOR UPDATE`,
-        [item.product_id]
+        [item.product_id, businessId]
       );
 
       if (products.length === 0) {
@@ -428,12 +428,13 @@ export async function receivePurchase(id, receivedItems) {
       await connection.execute(
         `UPDATE purchase_items
          SET received_quantity = received_quantity + ?
-         WHERE id = ?`,
-        [receiveQuantity, itemId]
+         WHERE id = ? AND business_id = ?`,
+        [receiveQuantity, itemId, businessId]
       );
 
       await connection.execute(
         `INSERT INTO stock_movements (
+          business_id,
           product_id,
           movement_type,
           quantity,
@@ -442,8 +443,9 @@ export async function receivePurchase(id, receivedItems) {
           reference_type,
           reference_id,
           notes
-        ) VALUES (?, 'stock_in', ?, ?, ?, 'purchase', ?, ?)`,
+        ) VALUES (?, ?, 'stock_in', ?, ?, ?, 'purchase', ?, ?)`,
         [
+          businessId,
           item.product_id,
           receiveQuantity,
           previousStock,
@@ -452,6 +454,7 @@ export async function receivePurchase(id, receivedItems) {
           `Goods received for purchase ID ${id}`,
         ]
       );
+
     }
 
     const [updatedItems] = await connection.execute(

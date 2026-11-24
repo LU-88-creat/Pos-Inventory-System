@@ -154,6 +154,7 @@ export async function recordStockMovement(req, res) {
     await updateProductStock(connection, productId, newStock);
 
     const movementId = await createStockMovement(connection, {
+      business_id: req.user.business_id,
       product_id: productId,
       movement_type: VALID_MOVEMENTS[movement_type],
       quantity,

@@ -3,6 +3,7 @@ import db from "../config/db.js";
 
 export async function createSale(connection, saleData) {
   const {
+    business_id,
     receipt_number,
     subtotal,
     discount_amount = 0,
@@ -17,6 +18,7 @@ export async function createSale(connection, saleData) {
 
   const sql = `
     INSERT INTO sales (
+      business_id,
       receipt_number,
       subtotal,
       discount_amount,
@@ -28,10 +30,11 @@ export async function createSale(connection, saleData) {
       cashier_name,
       notes
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const [result] = await connection.execute(sql, [
+    business_id,
     receipt_number,
     subtotal,
     discount_amount,
@@ -50,6 +53,7 @@ export async function createSale(connection, saleData) {
 
 export async function addSaleItem(connection, item) {
   const {
+    business_id,
     sale_id,
     product_id,
     product_name,
@@ -65,6 +69,7 @@ export async function addSaleItem(connection, item) {
 
   const sql = `
     INSERT INTO sale_items (
+      business_id,
       sale_id,
       product_id,
       product_name,
@@ -77,10 +82,11 @@ export async function addSaleItem(connection, item) {
       tax_amount,
       line_total
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const [result] = await connection.execute(sql, [
+    business_id,
     sale_id,
     product_id,
     product_name,
@@ -98,19 +104,27 @@ export async function addSaleItem(connection, item) {
 }
 
 
-export async function getSaleById(id) {
+export async function getSaleById(id, businessId = null) {
+  const saleParams = businessId === null ? [id] : [id, businessId];
+  const saleWhere = businessId === null
+    ? "WHERE id = ? LIMIT 1"
+    : "WHERE id = ? AND business_id = ? LIMIT 1";
   const [sales] = await db.execute(
-    `SELECT * FROM sales WHERE id = ? LIMIT 1`,
-    [id]
+    `SELECT * FROM sales ${saleWhere}`,
+    saleParams
   );
 
   if (sales.length === 0) {
     return null;
   }
 
+  const itemParams = businessId === null ? [id] : [id, businessId];
+  const itemWhere = businessId === null
+    ? "WHERE sale_id = ?"
+    : "WHERE sale_id = ? AND business_id = ?";
   const [items] = await db.execute(
-    `SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id ASC`,
-    [id]
+    `SELECT * FROM sale_items ${itemWhere} ORDER BY id ASC`,
+    itemParams
   );
 
   return {

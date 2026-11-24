@@ -288,7 +288,8 @@ export async function receivePurchaseController(req, res) {
 
     const purchase = await receivePurchase(
       Number(req.params.id),
-      items
+      items,
+      req.user.business_id
     );
 
     return res.status(200).json({

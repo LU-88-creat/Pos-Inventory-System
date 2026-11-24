@@ -150,15 +150,17 @@ export async function getCurrentUser(req, res) {
 
 export async function requestPasswordReset(req, res) {
   try {
-    const { email } = req.body;
+    const { business_email, email } = req.body;
 
     if (
+      typeof business_email !== "string" ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(business_email.trim()) ||
       typeof email !== "string" ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
     ) {
       return res.status(400).json({
         success: false,
-        message: "Please enter a valid email address.",
+        message: "Please enter valid business and employee email addresses.",
       });
     }
 
@@ -166,19 +168,33 @@ export async function requestPasswordReset(req, res) {
 
     if (!transporter) {
       console.error("Password recovery SMTP settings are not configured.");
+
       return res.status(503).json({
         success: false,
         message: "Password recovery is not currently available. Contact your administrator.",
       });
     }
 
-    const user = await getUserByEmail(email.trim().toLowerCase());
+    const business = await getBusinessByEmail(
+      business_email.trim().toLowerCase()
+    );
+
+    const user = business?.is_active
+      ? await getUserByEmail(
+          email.trim().toLowerCase(),
+          business.id
+        )
+      : null;
 
     if (user?.is_active && user.email) {
       const token = randomBytes(32).toString("hex");
       const tokenHash = createHash("sha256").update(token).digest("hex");
 
-      await savePasswordResetToken(user.id, tokenHash);
+      await savePasswordResetToken(
+        user.id,
+        business.id,
+        tokenHash
+      );
 
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       const resetUrl = new URL("/", frontendUrl);
@@ -188,9 +204,9 @@ export async function requestPasswordReset(req, res) {
         const delivery = await transporter.sendMail({
           from: getMailFrom(),
           to: user.email,
-          subject: "Reset your POS account password",
+          subject: "Reset your Lux account password",
           text: `Hello ${user.full_name},\n\nUse this link to reset your password. It expires in one hour:\n${resetUrl.toString()}\n\nIf you did not request this, you can ignore this email.`,
-          html: `<p>Hello,</p><p>Use the link below to reset your password. It expires in one hour.</p><p><a href="${resetUrl.toString()}">Reset password</a></p><p>If you did not request this, you can ignore this email.</p>`,
+          html: `<p>Hello ${user.full_name},</p><p>Use the link below to reset your password. It expires in one hour.</p><p><a href="${resetUrl.toString()}">Reset password</a></p><p>If you did not request this, you can ignore this email.</p>`,
         });
 
         if (!delivery.accepted?.length || delivery.rejected?.length) {
@@ -202,16 +218,17 @@ export async function requestPasswordReset(req, res) {
       }
     } else {
       console.warn(
-        "Password reset email not sent: no active account with a configured email was found."
+        "Password reset email not sent: no active account was found."
       );
     }
 
     return res.status(200).json({
       success: true,
-      message: "If an active account with that email exists, a password reset link has been sent.",
+      message: "If an active account with those details exists, a password reset link has been sent.",
     });
   } catch (error) {
     console.error("Password reset request error:", error.message);
+
     return res.status(500).json({
       success: false,
       message: "Unable to send a password reset link. Please try again later.",

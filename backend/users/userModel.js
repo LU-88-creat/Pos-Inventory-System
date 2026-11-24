@@ -22,8 +22,9 @@ async function executeUserRead(sql, values) {
 }
 
 // Find an employee account within a specific business.
+// Find an employee account within a specific business.
 export async function getUserByUsername(username, businessId) {
-  const [rows] = await db.execute(
+  const [rows] = await executeUserRead(
     `SELECT *
      FROM users
      WHERE username = ?
@@ -35,21 +36,28 @@ export async function getUserByUsername(username, businessId) {
   return rows[0] || null;
 }
 
-// Find an employee account using its email address.
-export async function getUserByEmail(email) {
-  const [rows] = await db.execute(
-    `SELECT id, full_name, email, is_active
+
+// Find an employee account using its email and business ID.
+export async function getUserByEmail(email, businessId) {
+  const [rows] = await executeUserRead(
+    `SELECT
+       id,
+       business_id,
+       full_name,
+       email,
+       is_active
      FROM users
      WHERE email = ?
+       AND business_id = ?
      LIMIT 1`,
-    [email]
+    [email, businessId]
   );
 
   return rows[0] || null;
 }
 
-// Find an employee account using its ID.
-export async function getUserById(id) {
+// Find an employee account by ID within a specific business.
+export async function getUserById(id, businessId) {
   const [rows] = await executeUserRead(
     `SELECT
        id,
@@ -63,16 +71,18 @@ export async function getUserById(id) {
        updated_at
      FROM users
      WHERE id = ?
+       AND business_id = ?
      LIMIT 1`,
-    [id]
+    [id, businessId]
   );
 
   return rows[0] || null;
 }
 
-// Create a new employee account.
+// Create a new employee account within a specific business.
 export async function createUser(userData) {
   const {
+    business_id,
     full_name,
     username,
     email,
@@ -82,14 +92,16 @@ export async function createUser(userData) {
 
   const [result] = await db.execute(
     `INSERT INTO users (
+       business_id,
        full_name,
        username,
        email,
        password_hash,
        role
      )
-     VALUES (?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
+      business_id,
       full_name,
       username,
       email || null,
@@ -98,14 +110,15 @@ export async function createUser(userData) {
     ]
   );
 
-  return getUserById(result.insertId);
+  return getUserById(result.insertId, business_id);
 }
 
-// Retrieve all employee accounts.
-export async function getAllUsers() {
+// Retrieve employee accounts belonging to a specific business.
+export async function getAllUsers(businessId) {
   const [rows] = await db.execute(
     `SELECT
        id,
+       business_id,
        full_name,
        username,
        email,
@@ -114,69 +127,96 @@ export async function getAllUsers() {
        created_at,
        updated_at
      FROM users
-     ORDER BY created_at DESC`
+     WHERE business_id = ?
+     ORDER BY created_at DESC`,
+    [businessId]
   );
 
   return rows;
 }
 
-export async function updateUserStatus(id, is_active) {
-  const [result] = await db.execute(
+
+// Update an employee's status within a specific business.
+export async function updateUserStatus(id, is_active, businessId) {
+  await db.execute(
     `UPDATE users
      SET is_active = ?
-     WHERE id = ?`,
-    [is_active, id]
+     WHERE id = ?
+       AND business_id = ?`,
+    [is_active, id, businessId]
+  );
+
+  // Return the employee even if the status was already unchanged.
+  return getUserById(id, businessId);
+}
+
+
+// Update an employee's name within a specific business.
+export async function updateUserName(id, full_name, businessId) {
+  const [result] = await db.execute(
+    `UPDATE users
+     SET full_name = ?
+     WHERE id = ?
+       AND business_id = ?`,
+    [full_name, id, businessId]
   );
 
   if (result.affectedRows === 0) {
     return null;
   }
 
-  return getUserById(id);
+  return getUserById(id, businessId);
 }
 
-export async function updateUserName(id, full_name) {
-  await db.execute(
-    `UPDATE users
-     SET full_name = ?
-     WHERE id = ?`,
-    [full_name, id]
-  );
-
-  return getUserById(id);
-}
-
-export async function deleteUserById(id) {
+// Delete an employee account belonging to a specific business.
+export async function deleteUserById(id, businessId) {
   const [result] = await db.execute(
     `DELETE FROM users
-     WHERE id = ?`,
-    [id]
+     WHERE id = ?
+       AND business_id = ?`,
+    [id, businessId]
   );
 
   return result.affectedRows > 0;
 }
 
-// Retrieve the current password hash for an employee.
-export async function getUserPasswordHash(id) {
+// Retrieve an employee's password hash within a specific business.
+export async function getUserPasswordHash(id, businessId) {
   const [rows] = await db.execute(
     `SELECT password_hash
      FROM users
      WHERE id = ?
+       AND business_id = ?
      LIMIT 1`,
-    [id]
+    [id, businessId]
   );
 
   return rows[0] || null;
 }
 
-// Update an employee's password hash.
-export async function updateUserPassword(id, password_hash) {
+// Update an employee's password within a specific business.
+export async function updateUserPassword(id, password_hash, businessId) {
   const [result] = await db.execute(
     `UPDATE users
      SET password_hash = ?
-     WHERE id = ?`,
-    [password_hash, id]
+     WHERE id = ?
+       AND business_id = ?`,
+    [password_hash, id, businessId]
   );
 
   return result.affectedRows > 0;
+}
+
+// Count active non-administrator employees in a business.
+export async function countActiveEmployees(businessId) {
+  const [rows] = await db.execute(
+    `SELECT COUNT(*) AS total
+     FROM users
+     WHERE business_id = ?
+       AND is_active = 1
+       AND role != 'administrator'`,
+    [businessId]
+  );
+
+  return Number(rows[0].total);
 }

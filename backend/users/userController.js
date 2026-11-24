@@ -10,7 +10,10 @@ import {
   deleteUserById,
   getUserPasswordHash,
   updateUserPassword,
+  countActiveEmployees,
 } from "./userModel.js";
+
+import { getBusinessSubscription } from "../models/subscriptionModel.js";
 
 import { createActivityLog } from "../activityLogs/activityLogModel.js";
 import {
@@ -19,10 +22,39 @@ import {
   getMailTransport,
 } from "../config/mailer.js";
 
+
+async function checkEmployeeLimit(businessId) {
+  const subscription = await getBusinessSubscription(businessId);
+
+  if (!subscription || !subscription.has_access) {
+    return {
+      allowed: false,
+      message: "Your subscription does not allow employee management. Please contact Lux support.",
+    };
+  }
+
+  // Enterprise has unlimited employee accounts.
+  if (subscription.max_employees === null) {
+    return { allowed: true };
+  }
+
+  const activeEmployees = await countActiveEmployees(businessId);
+
+  if (activeEmployees >= subscription.max_employees) {
+    return {
+      allowed: false,
+      message: `Your ${subscription.plan_name} plan allows a maximum of ${subscription.max_employees} active employees. Upgrade your plan to add more employees.`,
+    };
+  }
+
+  return { allowed: true };
+}
+
+
 // List all employee accounts.
 export async function listUsers(req, res) {
   try {
-    const users = await getAllUsers();
+    const users = await getAllUsers(req.user.business_id);
 
     return res.status(200).json({
       success: true,
@@ -51,7 +83,6 @@ export async function addUser(req, res) {
     } = req.body;
 
     const allowedRoles = [
-      "administrator",
       "cashier",
       "storekeeper",
     ];
@@ -114,6 +145,18 @@ export async function addUser(req, res) {
       });
     }
 
+    // Check the business subscription's employee limit.
+    const employeeLimit = await checkEmployeeLimit(
+      req.user.business_id
+    );
+
+    if (!employeeLimit.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: employeeLimit.message,
+      });
+    }
+
     const transporter = getMailTransport();
 
     if (!transporter) {
@@ -127,6 +170,7 @@ export async function addUser(req, res) {
     const password_hash = await bcrypt.hash(password, 12);
 
     const user = await createUser({
+      business_id: req.user.business_id,
       full_name: full_name.trim(),
       username: username.trim(),
       email: normalizedEmail,
@@ -265,7 +309,7 @@ export async function changeUserName(req, res) {
       });
     }
 
-    const previousUser = await getUserById(userId);
+    const previousUser = await getUserById(userId, req.user.business_id);
 
     if (!previousUser) {
       return res.status(404).json({
@@ -274,8 +318,12 @@ export async function changeUserName(req, res) {
       });
     }
 
-    const user = await updateUserName(userId, full_name.trim());
-
+    const updatedUser = await updateUserName(
+      userId,
+      full_name.trim(),
+      req.user.business_id
+    );
+    
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -314,6 +362,7 @@ export async function changeUserName(req, res) {
   }
 }
 
+
 export async function changeUserStatus(req, res) {
   try {
     const { id } = req.params;
@@ -326,8 +375,12 @@ export async function changeUserStatus(req, res) {
       });
     }
 
-    if (is_active !== 0 && is_active !== 1 &&
-        is_active !== false && is_active !== true) {
+    if (
+      is_active !== 0 &&
+      is_active !== 1 &&
+      is_active !== false &&
+      is_active !== true
+    ) {
       return res.status(400).json({
         success: false,
         message: "is_active must be 0 or 1.",
@@ -341,9 +394,40 @@ export async function changeUserStatus(req, res) {
       });
     }
 
+    // Check the employee's current status before reactivation.
+    const existingUser = await getUserById(
+      Number(id),
+      req.user.business_id
+    );
+
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found.",
+      });
+    }
+
+    // Enforce the plan limit only when reactivating an inactive employee.
+    if (
+      Number(is_active) === 1 &&
+      Number(existingUser.is_active) === 0
+    ) {
+      const employeeLimit = await checkEmployeeLimit(
+        req.user.business_id
+      );
+
+      if (!employeeLimit.allowed) {
+        return res.status(403).json({
+          success: false,
+          message: employeeLimit.message,
+        });
+      }
+    }
+
     const user = await updateUserStatus(
       Number(id),
-      Number(is_active)
+      Number(is_active),
+      req.user.business_id
     );
 
     if (!user) {
@@ -353,8 +437,9 @@ export async function changeUserStatus(req, res) {
       });
     }
 
-    // Record the employee status change.
-    const newStatus = Number(is_active) === 1 ? "active" : "inactive";
+    const newStatus = Number(is_active) === 1
+      ? "active"
+      : "inactive";
 
     try {
       await createActivityLog({
@@ -369,8 +454,10 @@ export async function changeUserStatus(req, res) {
         ip_address: req.ip,
       });
     } catch (logError) {
-      // Logging failure must not prevent the status change.
-      console.error("Employee status activity logging error:", logError.message);
+      console.error(
+        "Employee status activity logging error:",
+        logError.message
+      );
     }
 
     return res.status(200).json({
@@ -387,6 +474,7 @@ export async function changeUserStatus(req, res) {
     });
   }
 }
+
 
 export async function deleteUser(req, res) {
   try {
@@ -406,7 +494,7 @@ export async function deleteUser(req, res) {
       });
     }
 
-    const user = await getUserById(userId);
+    const user = await getUserById(userId, req.user.business_id);
 
     if (!user) {
       return res.status(404).json({
@@ -415,7 +503,10 @@ export async function deleteUser(req, res) {
       });
     }
 
-    const deleted = await deleteUserById(userId);
+    const deleted = await deleteUserById(
+      userId,
+      req.user.business_id
+    );
 
     if (!deleted) {
       return res.status(404).json({
@@ -494,7 +585,10 @@ export async function changePassword(req, res) {
       });
     }
 
-    const user = await getUserPasswordHash(userId);
+    const currentUser = await getUserPasswordHash(
+      userId,
+      req.user.business_id
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -519,7 +613,8 @@ export async function changePassword(req, res) {
 
     const updated = await updateUserPassword(
       userId,
-      newPasswordHash
+      password_hash,
+      req.user.business_id
     );
 
     if (!updated) {
