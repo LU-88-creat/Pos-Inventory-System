@@ -15,6 +15,25 @@ const lastStkQueryAt = new Map();
 const STK_QUERY_INTERVAL_MS = 10 * 1000;
 const STK_QUERY_INITIAL_DELAY_SECONDS = 5;
 const STK_PROMPT_TIMEOUT_SECONDS = 3 * 60;
+const RETRYABLE_DATABASE_ERRORS = new Set([
+  "ECONNRESET",
+  "PROTOCOL_CONNECTION_LOST",
+  "ETIMEDOUT",
+  "EPIPE",
+]);
+
+async function withTransientDatabaseRetry(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!RETRYABLE_DATABASE_ERRORS.has(error.code)) {
+      throw error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return operation();
+  }
+}
 
 async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) {
   const connection = await db.getConnection();
@@ -83,18 +102,22 @@ async function markMpesaAttemptFailed(attemptId, resultCode, resultDescription) 
 }
 
 export async function expireStkPushes() {
-  const [attempts] = await db.execute(
-    `SELECT id
-     FROM mpesa_transactions
-     WHERE status IN ('pending', 'initiating')
-       AND created_at <= DATE_SUB(NOW(), INTERVAL ${STK_PROMPT_TIMEOUT_SECONDS} SECOND)`
+  const [attempts] = await withTransientDatabaseRetry(() =>
+    db.execute(
+      `SELECT id
+       FROM mpesa_transactions
+       WHERE status IN ('pending', 'initiating')
+         AND created_at <= DATE_SUB(NOW(), INTERVAL ${STK_PROMPT_TIMEOUT_SECONDS} SECOND)`
+    )
   );
 
   for (const attempt of attempts) {
-    await markMpesaAttemptFailed(
-      attempt.id,
-      null,
-      "M-Pesa prompt expired after 3 minutes."
+    await withTransientDatabaseRetry(() =>
+      markMpesaAttemptFailed(
+        attempt.id,
+        null,
+        "M-Pesa prompt expired after 3 minutes."
+      )
     );
   }
 }

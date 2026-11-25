@@ -51,8 +51,8 @@ export async function getBusinessByEmail(email) {
 }
 
 // Find a business using its ID.
-export async function getBusinessById(businessId) {
-  const [rows] = await db.execute(
+export async function getBusinessById(businessId, connection = db) {
+  const [rows] = await connection.execute(
     `SELECT
        id,
        business_name,
@@ -65,4 +65,26 @@ export async function getBusinessById(businessId) {
   );
 
   return rows[0] || null;
+}
+
+// Create a new business using a supplied database connection.
+export async function createBusiness(businessData, connection = db) {
+  const {
+    business_name,
+    email,
+    currency = "KES",
+  } = businessData;
+
+  const [result] = await connection.execute(
+    `INSERT INTO businesses (
+      business_name,
+      email,
+      currency,
+      subscription_status,
+      is_active
+    ) VALUES (?, ?, ?, 'trial', 1)`,
+    [business_name, email, currency]
+  );
+
+  return getBusinessById(result.insertId, connection);
 }

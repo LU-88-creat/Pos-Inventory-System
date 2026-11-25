@@ -56,9 +56,22 @@ export async function getUserByEmail(email, businessId) {
   return rows[0] || null;
 }
 
-// Find an employee account by ID within a specific business.
-export async function getUserById(id, businessId) {
+// Find business administrators that can sign in using the business email.
+export async function getAdministratorsByBusinessId(businessId) {
   const [rows] = await executeUserRead(
+    `SELECT *
+     FROM users
+     WHERE business_id = ?
+       AND role = 'administrator'
+     ORDER BY id`,
+    [businessId]
+  );
+
+  return rows;
+}
+
+export async function getUserById(id, businessId, connection = db) {
+  const [rows] = await connection.execute(
     `SELECT
        id,
        business_id,
@@ -79,8 +92,7 @@ export async function getUserById(id, businessId) {
   return rows[0] || null;
 }
 
-// Create a new employee account within a specific business.
-export async function createUser(userData) {
+export async function createUser(userData, connection = db) {
   const {
     business_id,
     full_name,
@@ -90,7 +102,7 @@ export async function createUser(userData) {
     role,
   } = userData;
 
-  const [result] = await db.execute(
+  const [result] = await connection.execute(
     `INSERT INTO users (
        business_id,
        full_name,
@@ -110,7 +122,7 @@ export async function createUser(userData) {
     ]
   );
 
-  return getUserById(result.insertId, business_id);
+  return getUserById(result.insertId, business_id, connection);
 }
 
 // Retrieve employee accounts belonging to a specific business.

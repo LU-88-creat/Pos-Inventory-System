@@ -2,6 +2,8 @@
 import { useState } from "react";
 import Dashboard from "./Dashboard";
 import Login from "./Login";
+import SignUp from "./SignUp";
+import PlanSelection from "./PlanSelection";
 import "./App.css";
 
 function App() {
@@ -16,6 +18,9 @@ function App() {
     }
   });
 
+  const [page, setPage] = useState("login");
+  const [registrationData, setRegistrationData] = useState(null);
+
   function handleLogin(data) {
     sessionStorage.setItem(
       "retailflow_auth",
@@ -28,17 +33,52 @@ function App() {
   function handleLogout() {
     sessionStorage.removeItem("retailflow_auth");
     setAuth(null);
+    setPage("login");
   }
 
-  if (!auth?.token || !auth?.user) {
-    return <Login onLogin={handleLogin} />;
+  function handleRegistrationComplete(data) {
+    setRegistrationData(data);
+    setPage("plans");
+  }
+
+  function handlePlanSelected(data) {
+    setRegistrationData(null);
+    setPage("login");
+  }
+
+  if (auth?.token && auth?.user) {
+    return (
+      <Dashboard
+        user={auth.user}
+        token={auth.token}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (page === "signup") {
+    return (
+      <SignUp
+        onRegistrationComplete={handleRegistrationComplete}
+        onShowLogin={() => setPage("login")}
+      />
+    );
+  }
+
+  if (page === "plans" && registrationData?.registrationToken) {
+    return (
+      <PlanSelection
+        registrationToken={registrationData.registrationToken}
+        onPlanSelected={handlePlanSelected}
+        onBack={() => setPage("signup")}
+      />
+    );
   }
 
   return (
-    <Dashboard
-      user={auth.user}
-      token={auth.token}
-      onLogout={handleLogout}
+    <Login
+      onLogin={handleLogin}
+      onShowSignUp={() => setPage("signup")}
     />
   );
 }

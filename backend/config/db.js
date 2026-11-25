@@ -20,8 +20,11 @@ const dbConfig = {
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
+  idleTimeout: 30000,
   queueLimit: 0,
   connectTimeout: 15000,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
 };
 
 const caPath = process.env.DB_SSL_CA_PATH;

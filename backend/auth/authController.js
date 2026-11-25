@@ -1,8 +1,15 @@
 
 import bcrypt from "bcrypt";
+import db from "../config/db.js";
+import { createBusiness } from "../models/businessModel.js";
+import { createUser } from "../users/userModel.js";
 import { createHash, randomBytes } from "node:crypto";
 import jwt from "jsonwebtoken";
-import { getUserByEmail, getUserByUsername } from "../users/userModel.js";
+import {
+  getUserByEmail,
+  getUserByUsername,
+  getAdministratorsByBusinessId,
+} from "../users/userModel.js";
 import { getBusinessByEmail } from "../models/businessModel.js";
 import { createActivityLog } from "../activityLogs/activityLogModel.js";
 import { getMailFrom, getMailTransport } from "../config/mailer.js";
@@ -12,22 +19,21 @@ import {
   savePasswordResetToken,
 } from "./passwordResetModel.js";
 
+
 export async function login(req, res) {
   try {
     const { business_email, username, password } = req.body;
 
-    // Validate login fields.
+    // Validate required login fields.
     if (
       typeof business_email !== "string" ||
-      typeof username !== "string" ||
       typeof password !== "string" ||
       !business_email.trim() ||
-      !username.trim() ||
       !password
     ) {
       return res.status(400).json({
         success: false,
-        message: "Business email, username and password are required.",
+        message: "Business email and password are required.",
       });
     }
 
@@ -39,20 +45,47 @@ export async function login(req, res) {
     if (!business || !business.is_active) {
       return res.status(401).json({
         success: false,
-        message: "Invalid business email, username or password.",
+        message: "Invalid business email or password.",
       });
     }
 
-    // Find the employee within the identified business.
-    const user = await getUserByUsername(
-      username.trim(),
-      business.id
-    );
+    let user;
+    let passwordMatches;
+
+    // If a username is supplied, use the existing employee login.
+    if (typeof username === "string" && username.trim()) {
+      user = await getUserByUsername(
+        username.trim(),
+        business.id
+      );
+    } else {
+      // The business email identifies the tenant; the password identifies its administrator.
+      const administrators = await getAdministratorsByBusinessId(business.id);
+      const matchingAdministrators = [];
+
+      for (const administrator of administrators) {
+        if (await bcrypt.compare(password, administrator.password_hash)) {
+          matchingAdministrators.push(administrator);
+        }
+      }
+
+      const activeMatches = matchingAdministrators.filter(
+        (administrator) => administrator.is_active
+      );
+
+      if (activeMatches.length === 1) {
+        user = activeMatches[0];
+        passwordMatches = true;
+      } else if (activeMatches.length === 0 && matchingAdministrators.length === 1) {
+        user = matchingAdministrators[0];
+        passwordMatches = true;
+      }
+    }
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid business email, username or password.",
+        message: "Invalid sign-in details.",
       });
     }
 
@@ -65,15 +98,14 @@ export async function login(req, res) {
     }
 
     // Verify the password.
-    const passwordMatches = await bcrypt.compare(
-      password,
-      user.password_hash
-    );
+    if (passwordMatches === undefined) {
+      passwordMatches = await bcrypt.compare(password, user.password_hash);
+    }
 
     if (!passwordMatches) {
       return res.status(401).json({
         success: false,
-        message: "Invalid username or password.",
+        message: "Invalid sign-in details.",
       });
     }
 
@@ -100,7 +132,7 @@ export async function login(req, res) {
       }
     );
 
-    // Record successful employee login.
+    // Record successful login.
     try {
       await createActivityLog({
         business_id: business.id,
@@ -114,7 +146,6 @@ export async function login(req, res) {
         ip_address: req.ip,
       });
     } catch (logError) {
-      // An audit-log failure must not prevent a successful login.
       console.error("Login activity logging error:", logError.message);
     }
 
@@ -140,6 +171,7 @@ export async function login(req, res) {
     });
   }
 }
+
 
 export async function getCurrentUser(req, res) {
   return res.status(200).json({
@@ -280,5 +312,158 @@ export async function resetPassword(req, res) {
       success: false,
       message: "Unable to reset your password. Please try again later.",
     });
+  }
+}
+
+export async function registerBusiness(req, res) {
+  let connection;
+
+  try {
+    const {
+      full_name,
+      business_name,
+      business_email,
+      password,
+      confirm_password,
+    } = req.body;
+
+    // Validate required fields.
+    if (
+      typeof full_name !== "string" ||
+      typeof business_name !== "string" ||
+      typeof business_email !== "string" ||
+      typeof password !== "string" ||
+      typeof confirm_password !== "string" ||
+      !full_name.trim() ||
+      !business_name.trim() ||
+      !business_email.trim() ||
+      !password ||
+      !confirm_password
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All registration fields are required.",
+      });
+    }
+
+    const normalizedEmail = business_email.trim().toLowerCase();
+
+    // Validate email format.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid business email address.",
+      });
+    }
+
+    // Validate password.
+    if (password.length < 12) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must contain at least 12 characters.",
+      });
+    }
+
+    if (password !== confirm_password) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match.",
+      });
+    }
+
+    // Check whether the business email already exists.
+    const existingBusiness = await getBusinessByEmail(normalizedEmail);
+
+    if (existingBusiness) {
+      return res.status(409).json({
+        success: false,
+        message: "A business with this email address is already registered.",
+      });
+    }
+
+    // Generate a private username for the administrator.
+    const adminUsername = `admin_${randomBytes(6).toString("hex")}`;
+
+    // Hash the administrator password.
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Start the registration transaction.
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // Create the business.
+    const business = await createBusiness(
+      {
+        business_name: business_name.trim(),
+        email: normalizedEmail,
+        currency: "KES",
+      },
+      connection
+    );
+
+    // Create the business administrator.
+    const admin = await createUser(
+      {
+        business_id: business.id,
+        full_name: full_name.trim(),
+        username: adminUsername,
+        email: normalizedEmail,
+        password_hash: passwordHash,
+        role: "administrator",
+      },
+      connection
+    );
+
+    // Commit the registration.
+    await connection.commit();
+
+    // Generate a temporary token for subscription plan selection.
+    const registrationToken = jwt.sign(
+      {
+        business_id: business.id,
+        purpose: "plan_selection",
+      },
+        process.env.JWT_SECRET,
+      {
+        expiresIn: "30m",
+      }
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Business registered successfully. Please select a subscription plan.",
+      registrationToken, 
+      business: {
+        id: business.id,
+        business_name: business.business_name,
+        email: business.email,
+      },
+      administrator: {
+        id: admin.id,
+        full_name: admin.full_name,
+        email: admin.email,
+        username: admin.username,
+        role: admin.role,
+      },
+    });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Registration rollback error:", rollbackError.message);
+      }
+    }
+
+    console.error("Business registration error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to complete registration. Please try again.",
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 }

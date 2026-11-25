@@ -6,6 +6,7 @@ import {
   getCurrentUser,
   requestPasswordReset,
   resetPassword,
+  registerBusiness,
 } from "./authController.js";
 
 import {
@@ -15,6 +16,7 @@ import {
 const router = express.Router();
 
 router.post("/login", login);
+router.post("/register", registerBusiness);
 router.post("/forgot-password", requestPasswordReset);
 router.post("/reset-password", resetPassword);
 

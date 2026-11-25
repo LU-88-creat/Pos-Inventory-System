@@ -14,6 +14,10 @@ import userRoutes from "./users/userRoutes.js";
 import businessSettingsRoutes from "./settings/businessSettingsRoutes.js";
 import activityLogRoutes from "./activityLogs/activityLogRoutes.js";
 import { expireStkPushes } from "./sales/mpesaController.js";
+import subscriptionRoutes from "./subscriptions/subscriptionRoutes.js";
+import {
+  processScheduledSubscriptionChanges,
+} from "./subscriptions/subscriptionScheduler.js";
 
 
 const app = express();
@@ -44,6 +48,7 @@ app.use(
 );
 app.use(express.json());
 app.use("/api/auth", authRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales", salesRoutes);
@@ -90,6 +95,18 @@ app.listen(PORT, () => {
   };
   expireStkPushesSafely();
   setInterval(expireStkPushesSafely, 15 * 1000);
+
+    const processSubscriptionChangesSafely = () => {
+    processScheduledSubscriptionChanges().catch((error) => {
+      console.error(
+        "Process scheduled subscription changes error:",
+        error.message
+      );
+    });
+  };
+
+  processSubscriptionChangesSafely();
+  setInterval(processSubscriptionChangesSafely, 60 * 1000);
 
   db.query("SELECT 1")
     .then(() => console.log("Database connected"))

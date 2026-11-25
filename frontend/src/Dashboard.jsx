@@ -16,6 +16,7 @@ import {
   ChevronRight,
   LogOut,
   History,
+  CreditCard,
 } from "lucide-react";
 
 import Product from "./Product";
@@ -27,6 +28,7 @@ import Suppliers from "./Suppliers";
 import brandLogo from "./assets/lux-logo.svg";
 import Purchases from "./Purchases";
 import SupplierPaymentHistory from "./SupplierPaymentHistory";
+import SubscriptionManagement from "./SubscriptionManagement";
 import Overview from "./Overview";
 import SettingsPage from "./Settings";
 import ActivityLogs from "./ActivityLogs";
@@ -82,6 +84,11 @@ const modules = [
   {
     label: "Audit Trail",
     icon: History,
+    roles: ["administrator"],
+  },
+  {
+    label: "Subscription Management",
+    icon: CreditCard,
     roles: ["administrator"],
   },
   {
@@ -480,6 +487,9 @@ export default function Dashboard({ user, token, onLogout }) {
           {activeModule === "Supplier Payment History" && <SupplierPaymentHistory />}
           {activeModule === "Audit Trail" && <ActivityLogs token={token} />}
           {activeModule === "Settings" && <SettingsPage token={token} />}
+          {activeModule === "Subscription Management" && (
+            <SubscriptionManagement />
+          )}
         </main>
 
         <footer className="flex flex-col gap-1 border-t border-slate-200 bg-white px-4 py-4 text-[10px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">

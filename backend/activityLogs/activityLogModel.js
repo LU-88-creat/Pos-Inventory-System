@@ -12,11 +12,11 @@ export async function createActivityLog({
   entity_id = null,
   description = null,
   ip_address = null,
-}) {
+}, connection = db) {
   let result;
 
   try {
-    [result] = await db.execute(
+    [result] = await connection.execute(
       `INSERT INTO activity_logs (
         business_id,
         user_id,
@@ -45,7 +45,7 @@ export async function createActivityLog({
       throw error;
     }
 
-    [result] = await db.execute(
+    [result] = await connection.execute(
       `INSERT INTO activity_logs (
         user_id,
         employee_name,
