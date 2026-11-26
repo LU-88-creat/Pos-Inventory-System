@@ -1,11 +1,15 @@
 
 import db from "../config/db.js";
 
-// Get all active customers, with optional search
-export async function getAllCustomers({ search = "" } = {}) {
+// Get active customers belonging to a specific business.
+export async function getAllCustomers(
+  businessId,
+  { search = "" } = {}
+) {
   const sql = `
     SELECT
       id,
+      business_id,
       customer_name,
       phone,
       email,
@@ -14,7 +18,8 @@ export async function getAllCustomers({ search = "" } = {}) {
       created_at,
       updated_at
     FROM customers
-    WHERE is_active = TRUE
+    WHERE business_id = ?
+      AND is_active = TRUE
       AND (
         customer_name LIKE ?
         OR phone LIKE ?
@@ -26,6 +31,7 @@ export async function getAllCustomers({ search = "" } = {}) {
   const searchTerm = `%${search}%`;
 
   const [rows] = await db.execute(sql, [
+    businessId,
     searchTerm,
     searchTerm,
     searchTerm,
@@ -34,11 +40,12 @@ export async function getAllCustomers({ search = "" } = {}) {
   return rows;
 }
 
-// Get one customer by ID
-export async function getCustomerById(id) {
+// Get one customer belonging to a specific business.
+export async function getCustomerById(id, businessId) {
   const sql = `
     SELECT
       id,
+      business_id,
       customer_name,
       phone,
       email,
@@ -48,16 +55,17 @@ export async function getCustomerById(id) {
       updated_at
     FROM customers
     WHERE id = ?
+      AND business_id = ?
     LIMIT 1
   `;
 
-  const [rows] = await db.execute(sql, [id]);
+  const [rows] = await db.execute(sql, [id, businessId]);
 
   return rows[0] || null;
 }
 
-// Create a customer
-export async function createCustomer(customer) {
+// Create a customer for a specific business.
+export async function createCustomer(customer, businessId) {
   const {
     customer_name,
     phone = null,
@@ -67,26 +75,28 @@ export async function createCustomer(customer) {
 
   const sql = `
     INSERT INTO customers (
+      business_id,
       customer_name,
       phone,
       email,
       address
     )
-    VALUES (?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?)
   `;
 
   const [result] = await db.execute(sql, [
+    businessId,
     customer_name,
     phone || null,
     email || null,
     address || null,
   ]);
 
-  return getCustomerById(result.insertId);
+  return getCustomerById(result.insertId, businessId);
 }
 
-// Update a customer
-export async function updateCustomer(id, customer) {
+// Update a customer only within its owning business.
+export async function updateCustomer(id, customer, businessId) {
   const {
     customer_name,
     phone = null,
@@ -102,6 +112,7 @@ export async function updateCustomer(id, customer) {
       email = ?,
       address = ?
     WHERE id = ?
+      AND business_id = ?
       AND is_active = TRUE
   `;
 
@@ -111,25 +122,27 @@ export async function updateCustomer(id, customer) {
     email || null,
     address || null,
     id,
+    businessId,
   ]);
 
   if (result.affectedRows === 0) {
     return null;
   }
 
-  return getCustomerById(id);
+  return getCustomerById(id, businessId);
 }
 
-// Deactivate a customer without permanently deleting the record
-export async function deactivateCustomer(id) {
+// Deactivate a customer only within its owning business.
+export async function deactivateCustomer(id, businessId) {
   const sql = `
     UPDATE customers
     SET is_active = FALSE
     WHERE id = ?
+      AND business_id = ?
       AND is_active = TRUE
   `;
 
-  const [result] = await db.execute(sql, [id]);
+  const [result] = await db.execute(sql, [id, businessId]);
 
   return result.affectedRows > 0;
 }

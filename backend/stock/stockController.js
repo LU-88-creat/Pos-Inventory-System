@@ -67,6 +67,7 @@ export async function listStockMovements(req, res) {
     }
 
     const movements = await getStockMovements({
+      businessId: req.user.business_id,
       productId,
       limit: requestedLimit,
     });
@@ -122,7 +123,11 @@ export async function recordStockMovement(req, res) {
   try {
     await connection.beginTransaction();
 
-    const product = await getProductForUpdate(connection, productId);
+    const product = await getProductForUpdate(
+      connection,
+      productId,
+      req.user.business_id
+    );
 
     if (!product) {
       await connection.rollback();
@@ -151,7 +156,12 @@ export async function recordStockMovement(req, res) {
       });
     }
 
-    await updateProductStock(connection, productId, newStock);
+    await updateProductStock(
+      connection,
+      productId,
+      newStock,
+      req.user.business_id
+    );
 
     const movementId = await createStockMovement(connection, {
       business_id: req.user.business_id,

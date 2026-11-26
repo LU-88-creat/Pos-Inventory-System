@@ -7,7 +7,9 @@ import { createActivityLog } from "../activityLogs/activityLogModel.js";
 
 export async function fetchBusinessSettings(req, res) {
   try {
-    const settings = await getBusinessSettings();
+    const settings = await getBusinessSettings(
+      req.user.business_id
+    );
 
     if (!settings) {
       return res.status(404).json({
@@ -85,17 +87,20 @@ export async function saveBusinessSettings(req, res) {
       });
     }
 
-    const settings = await updateBusinessSettings({
-      business_name: business_name.trim(),
-      phone,
-      email,
-      address,
-      currency,
-      receipt_header,
-      receipt_footer,
-      tax_enabled,
-      tax_rate: parsedTaxRate,
-    });
+    const settings = await updateBusinessSettings(
+      {
+        business_name: business_name.trim(),
+        phone,
+        email,
+        address,
+        currency,
+        receipt_header,
+        receipt_footer,
+        tax_enabled,
+        tax_rate: parsedTaxRate,
+      },
+      req.user.business_id
+    );
 
     try {
       await createActivityLog({

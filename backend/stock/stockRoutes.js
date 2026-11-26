@@ -9,12 +9,14 @@ import {
 import {
   authenticateToken,
   authorizeRoles,
+  authorizeFeature,
 } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // Require login and administrator/storekeeper role.
 router.use(authenticateToken);
+router.use(authorizeFeature("stock_management"));
 router.use(authorizeRoles("administrator", "storekeeper"));
 
 // View stock movement history.

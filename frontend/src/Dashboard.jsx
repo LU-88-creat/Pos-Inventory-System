@@ -40,64 +40,75 @@ const modules = [
     label: "Overview",
     icon: LayoutDashboard,
     roles: ["administrator", "cashier", "storekeeper"],
+    feature: "overview",
   },
   {
     label: "Point of Sale",
     icon: ShoppingCart,
     roles: ["administrator", "cashier"],
+    feature: "pos",
   },
   {
     label: "Sales",
     icon: ReceiptText,
     roles: ["administrator", "cashier"],
+    feature: "sales",
   },
   {
     label: "Customers",
     icon: Users,
     roles: ["administrator", "cashier"],
+    feature: "customers",
   },
   {
     label: "Products",
     icon: Package,
     roles: ["administrator", "storekeeper"],
+    feature: "products",
   },
   {
     label: "Stock Management",
     icon: Boxes,
     roles: ["administrator", "storekeeper"],
+    feature: "stock_management",
   },
   {
     label: "Suppliers",
     icon: Truck,
     roles: ["administrator", "storekeeper"],
+    feature: "suppliers",
   },
   {
     label: "Purchases",
     icon: ClipboardList,
     roles: ["administrator", "storekeeper"],
+    feature: "purchases",
   },
   {
     label: "Supplier Payment History",
     icon: ReceiptText,
     roles: ["administrator"],
+    feature: "supplier_payment_history",
   },
   {
     label: "Audit Trail",
     icon: History,
     roles: ["administrator"],
+    feature: "audit_trail",
   },
   {
     label: "Subscription Management",
     icon: CreditCard,
     roles: ["administrator"],
+    feature: null,
   },
   {
     label: "Settings",
     icon: Settings,
     roles: ["administrator"],
+    feature: "basic_settings",
   },
 ];
-
 
 export default function Dashboard({ user, token, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -152,47 +163,56 @@ export default function Dashboard({ user, token, onLogout }) {
   }, [refreshLowStock, token]);
   
   const [activeModule, setActiveModule] = useState(() => {
-    const preferredModules = {
-      administrator: "Overview",
-      cashier: "Point of Sale",
-      storekeeper: "Stock Management",
-    };
+  const enabledFeatures = user?.subscription?.enabled_features || [];
 
-    const defaultModule = modules.find(
-      (module) =>
-        module.label === preferredModules[user?.role] &&
-        module.roles.includes(user?.role)
-    );
+  const availableModules = modules.filter(
+    (module) =>
+      module.roles.includes(user?.role) &&
+      (
+        module.feature === null ||
+        enabledFeatures.includes(module.feature)
+      )
+  );
 
-    return (
-      defaultModule?.label ??
-      modules.find((module) => module.roles.includes(user?.role))?.label ??
-      "Overview"
-    );
-  });
+  const preferredModules = {
+    administrator: "Overview",
+    cashier: "Point of Sale",
+    storekeeper: "Stock Management",
+  };
 
+  const defaultModule = availableModules.find(
+    (module) => module.label === preferredModules[user?.role]
+  );
+
+  return defaultModule?.label ?? availableModules[0]?.label ?? "Overview";
+});
 
   useEffect(() => {
-    const handleNavigation = (event) => {
-      const module = event.detail?.module;
+  const handleNavigation = (event) => {
+    const requestedModule = event.detail?.module;
 
-      if (
-        modules.some(
-          (item) =>
-            item.label === module && item.roles.includes(user?.role)
+    const allowedModule = modules.find(
+      (item) =>
+        item.label === requestedModule &&
+        item.roles.includes(user?.role) &&
+        (
+          item.feature === null ||
+          user?.subscription?.enabled_features?.includes(item.feature)
         )
-      ) {
-        setActiveModule(module);
-        setSidebarOpen(false);
-      }
-    };
+    );
 
-    window.addEventListener("retailflow:navigate", handleNavigation);
+    if (allowedModule) {
+      setActiveModule(allowedModule.label);
+      setSidebarOpen(false);
+    }
+  };
 
-    return () => {
-      window.removeEventListener("retailflow:navigate", handleNavigation);
-    };
-  }, [user?.role]);
+  window.addEventListener("retailflow:navigate", handleNavigation);
+
+  return () => {
+    window.removeEventListener("retailflow:navigate", handleNavigation);
+  };
+}, [user?.role, user?.subscription?.enabled_features]);
 
   function handleModuleChange(label) {
     setActiveModule(label);
@@ -250,8 +270,15 @@ export default function Dashboard({ user, token, onLogout }) {
             className="space-y-1"
           >
             {modules
-              .filter((module) => module.roles.includes(user?.role))
-              .map(({ label, icon: Icon }) => {
+  .filter(
+    (module) =>
+      module.roles.includes(user?.role) &&
+      (
+        module.feature === null ||
+        user?.subscription?.enabled_features?.includes(module.feature)
+      )
+  )
+  .map(({ label, icon: Icon }) => {
                 const selected = activeModule === label;
 
                 return (
@@ -430,7 +457,8 @@ export default function Dashboard({ user, token, onLogout }) {
                     </p>
                   )}
 
-                  {["administrator", "storekeeper"].includes(user?.role) && (
+                  {["administrator", "storekeeper"].includes(user?.role) &&
+                    user?.subscription?.enabled_features?.includes("stock_management") && (
                     <button
                       type="button"
                       onClick={() => {

@@ -90,10 +90,13 @@ export async function listSuppliers(req, res) {
       });
     }
 
-    const suppliers = await getAllSuppliers({
-      search,
-      status: requestedStatus,
-    });
+    const suppliers = await getAllSuppliers(
+      req.user.business_id,
+      {
+        search,
+        status: requestedStatus,
+      }
+    );
 
     return res.json({
       success: true,
@@ -119,7 +122,10 @@ export async function getSupplier(req, res) {
       });
     }
 
-    const supplier = await getSupplierById(id);
+    const supplier = await getSupplierById(
+      id,
+      req.user.business_id
+    );
 
     if (!supplier) {
       return res.status(404).json({
@@ -149,7 +155,10 @@ export async function addSupplier(req, res) {
       });
     }
 
-    const supplier = await createSupplier(validation.data);
+    const supplier = await createSupplier(
+      validation.data,
+      req.user.business_id
+    );
 
     return res.status(201).json({
       success: true,
@@ -185,7 +194,11 @@ export async function editSupplier(req, res) {
       });
     }
 
-    const supplier = await updateSupplier(id, validation.data);
+    const supplier = await updateSupplier(
+      id,
+      validation.data,
+      req.user.business_id
+    );
 
     if (!supplier) {
       return res.status(404).json({
@@ -231,7 +244,8 @@ export async function changeSupplierStatus(req, res) {
 
     const supplier = await setSupplierStatus(
       id,
-      Number(is_active)
+      Number(is_active),
+      req.user.business_id
     );
 
     if (!supplier) {

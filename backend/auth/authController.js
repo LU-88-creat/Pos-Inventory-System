@@ -19,6 +19,10 @@ import {
   savePasswordResetToken,
 } from "./passwordResetModel.js";
 
+import {
+  getBusinessSubscription,
+} from "../models/subscriptionModel.js";
+
 
 export async function login(req, res) {
   try {
@@ -109,6 +113,9 @@ export async function login(req, res) {
       });
     }
 
+    // Retrieve the business subscription and enabled features.
+    const subscription = await getBusinessSubscription(business.id);
+
     // Ensure the JWT secret is configured.
     if (!process.env.JWT_SECRET) {
       console.error("JWT_SECRET is not configured.");
@@ -154,13 +161,21 @@ export async function login(req, res) {
       message: "Login successful.",
       token,
       user: {
-        id: user.id,
-        business_id: business.id,
-        full_name: user.full_name,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      },
+  id: user.id,
+  business_id: business.id,
+  full_name: user.full_name,
+  username: user.username,
+  email: user.email,
+  role: user.role,
+  subscription: subscription
+    ? {
+        plan_id: subscription.plan_id,
+        plan_code: subscription.plan_code,
+        plan_name: subscription.plan_name,
+        enabled_features: subscription.enabled_features || [],
+      }
+    : null,
+},
     });
   } catch (error) {
     console.error("Login error:", error.message);

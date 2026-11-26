@@ -1,7 +1,11 @@
 
 import db from "../config/db.js";
 
-export async function getAllSuppliers({ search = "", status = "all" } = {}) {
+// Retrieve suppliers belonging only to this business.
+export async function getAllSuppliers(
+  businessId,
+  { search = "", status = "all" } = {}
+) {
   let sql = `
     SELECT
       id,
@@ -16,10 +20,10 @@ export async function getAllSuppliers({ search = "", status = "all" } = {}) {
       created_at,
       updated_at
     FROM suppliers
-    WHERE 1 = 1
+    WHERE business_id = ?
   `;
 
-  const params = [];
+  const params = [businessId];
 
   if (search.trim()) {
     sql += `
@@ -47,16 +51,21 @@ export async function getAllSuppliers({ search = "", status = "all" } = {}) {
   return rows;
 }
 
-export async function getSupplierById(id) {
+// Retrieve one supplier belonging to this business.
+export async function getSupplierById(id, businessId) {
   const [rows] = await db.execute(
-    "SELECT * FROM suppliers WHERE id = ? LIMIT 1",
-    [id]
+    `SELECT *
+     FROM suppliers
+     WHERE id = ? AND business_id = ?
+     LIMIT 1`,
+    [id, businessId]
   );
 
   return rows[0] || null;
 }
 
-export async function createSupplier(supplier) {
+// Create a supplier under the authenticated business.
+export async function createSupplier(supplier, businessId) {
   const {
     supplier_name,
     contact_person = null,
@@ -69,6 +78,7 @@ export async function createSupplier(supplier) {
 
   const [result] = await db.execute(
     `INSERT INTO suppliers (
+      business_id,
       supplier_name,
       contact_person,
       phone,
@@ -76,8 +86,9 @@ export async function createSupplier(supplier) {
       address,
       tax_number,
       notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
+      businessId,
       supplier_name,
       contact_person,
       phone,
@@ -88,10 +99,11 @@ export async function createSupplier(supplier) {
     ]
   );
 
-  return getSupplierById(result.insertId);
+  return getSupplierById(result.insertId, businessId);
 }
 
-export async function updateSupplier(id, supplier) {
+// Update only a supplier belonging to this business.
+export async function updateSupplier(id, supplier, businessId) {
   const {
     supplier_name,
     contact_person = null,
@@ -111,7 +123,7 @@ export async function updateSupplier(id, supplier) {
          address = ?,
          tax_number = ?,
          notes = ?
-     WHERE id = ?`,
+     WHERE id = ? AND business_id = ?`,
     [
       supplier_name,
       contact_person,
@@ -121,6 +133,7 @@ export async function updateSupplier(id, supplier) {
       tax_number,
       notes,
       id,
+      businessId,
     ]
   );
 
@@ -128,18 +141,21 @@ export async function updateSupplier(id, supplier) {
     return null;
   }
 
-  return getSupplierById(id);
+  return getSupplierById(id, businessId);
 }
 
-export async function setSupplierStatus(id, is_active) {
+// Change status only for a supplier belonging to this business.
+export async function setSupplierStatus(id, is_active, businessId) {
   const [result] = await db.execute(
-    "UPDATE suppliers SET is_active = ? WHERE id = ?",
-    [is_active, id]
+    `UPDATE suppliers
+     SET is_active = ?
+     WHERE id = ? AND business_id = ?`,
+    [is_active, id, businessId]
   );
 
   if (result.affectedRows === 0) {
     return null;
   }
 
-  return getSupplierById(id);
+  return getSupplierById(id, businessId);
 }

@@ -1,6 +1,7 @@
+
 import db from "../config/db.js";
 
-// Retrieve activity logs for the administrator.
+// Retrieve activity logs for the authenticated business.
 export async function listActivityLogs(req, res) {
   try {
     const limit = Math.min(
@@ -21,8 +22,10 @@ export async function listActivityLogs(req, res) {
         ip_address,
         created_at
       FROM activity_logs
+      WHERE business_id = ?
       ORDER BY created_at DESC, id DESC
-      LIMIT ${limit}`
+      LIMIT ${limit}`,
+      [req.user.business_id]
     );
 
     return res.status(200).json({

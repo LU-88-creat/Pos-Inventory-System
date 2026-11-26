@@ -46,7 +46,7 @@ export async function listPurchases(req, res) {
       });
     }
 
-    const purchases = await getAllPurchases({
+    const purchases = await getAllPurchases(req.user.business_id, {
       search: String(search),
       status,
       supplier_id,
@@ -76,7 +76,10 @@ export async function getPurchase(req, res) {
       });
     }
 
-    const purchase = await getPurchaseById(Number(req.params.id));
+    const purchase = await getPurchaseById(
+      Number(req.params.id),
+      req.user.business_id
+    );
 
     if (!purchase) {
       return res.status(404).json({
@@ -181,6 +184,7 @@ export async function addPurchase(req, res) {
     }
 
     const purchase = await createDraftPurchase({
+      businessId: req.user.business_id,
       purchase_number: purchase_number.trim(),
       supplier_id: Number(supplier_id),
       purchase_date,
@@ -223,7 +227,7 @@ export async function addPurchase(req, res) {
     if (error.statusCode === 400) {
       return res.status(400).json({
         success: false,
-        message: error.message,
+        message: "Please check the purchase details and try again.",
       });
     }
 
@@ -244,7 +248,10 @@ export async function orderPurchaseController(req, res) {
       });
     }
 
-    const purchase = await orderPurchase(Number(req.params.id));
+    const purchase = await orderPurchase(
+      Number(req.params.id),
+      req.user.business_id
+    );
 
     return res.status(200).json({
       success: true,
@@ -257,7 +264,10 @@ export async function orderPurchaseController(req, res) {
     if (error.statusCode === 404 || error.statusCode === 409 || error.statusCode === 400) {
       return res.status(error.statusCode).json({
         success: false,
-        message: error.message,
+        message:
+          error.statusCode === 404
+            ? "Purchase not found."
+            : "The purchase cannot be ordered. Please review it and try again.",
       });
     }
 
@@ -303,7 +313,10 @@ export async function receivePurchaseController(req, res) {
     if ([400, 404, 409].includes(error.statusCode)) {
       return res.status(error.statusCode).json({
         success: false,
-        message: error.message,
+        message:
+          error.statusCode === 404
+            ? "Purchase not found."
+            : "The goods cannot be received. Please review the purchase and quantities.",
       });
     }
 

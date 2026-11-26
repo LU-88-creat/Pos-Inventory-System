@@ -1,7 +1,8 @@
 
 import db from "../config/db.js";
 
-// Retrieve the current subscription and plan for a business.
+
+// Retrieve the current subscription, plan, and enabled features for a business.
 export async function getBusinessSubscription(businessId) {
   const [rows] = await db.execute(
     `SELECT
@@ -41,7 +42,16 @@ export async function getBusinessSubscription(businessId) {
            THEN 1
 
          ELSE 0
-       END AS has_access
+       END AS has_access,
+       COALESCE(
+         (
+           SELECT JSON_ARRAYAGG(spf.feature_code)
+           FROM subscription_plan_features spf
+           WHERE spf.plan_id = bs.plan_id
+             AND spf.is_enabled = 1
+         ),
+         JSON_ARRAY()
+       ) AS enabled_features
      FROM business_subscriptions bs
      INNER JOIN subscription_plans sp
        ON sp.id = bs.plan_id
@@ -52,8 +62,21 @@ export async function getBusinessSubscription(businessId) {
     [businessId]
   );
 
-  return rows[0] || null;
+  const subscription = rows[0] || null;
+
+  if (!subscription) {
+    return null;
+  }
+
+  if (typeof subscription.enabled_features === "string") {
+    subscription.enabled_features = JSON.parse(
+      subscription.enabled_features
+    );
+  }
+
+  return subscription;
 }
+
 
 // Retrieve all active subscription plans with their configured features.
 export async function getActiveSubscriptionPlans(connection = db) {

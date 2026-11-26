@@ -141,12 +141,14 @@ function handleDatabaseError(error, res) {
   }
 
   if (
+    error.code === "INVALID_BUSINESS_CATEGORY" ||
     error.code === "ER_NO_REFERENCED_ROW_2" ||
     error.code === "ER_NO_REFERENCED_ROW"
   ) {
     return res.status(400).json({
       success: false,
-      message: "The selected category does not exist.",
+      message:
+        "The selected category does not exist or does not belong to this business.",
     });
   }
 
@@ -158,11 +160,13 @@ function handleDatabaseError(error, res) {
   });
 }
 
+// List products belonging to the logged-in business.
 export async function listProducts(req, res) {
   try {
+    const businessId = req.user.business_id;
     const { search = "", categoryId = "" } = req.query;
 
-    const products = await getAllProducts({
+    const products = await getAllProducts(businessId, {
       search: String(search),
       categoryId: String(categoryId),
     });
@@ -177,8 +181,10 @@ export async function listProducts(req, res) {
   }
 }
 
+// Retrieve a product belonging to the logged-in business.
 export async function getProduct(req, res) {
   try {
+    const businessId = req.user.business_id;
     const id = Number(req.params.id);
 
     if (!Number.isInteger(id) || id <= 0) {
@@ -188,7 +194,7 @@ export async function getProduct(req, res) {
       });
     }
 
-    const product = await getProductById(id);
+    const product = await getProductById(id, businessId);
 
     if (!product) {
       return res.status(404).json({
@@ -206,8 +212,10 @@ export async function getProduct(req, res) {
   }
 }
 
+// Create a product for the logged-in business.
 export async function addProduct(req, res) {
   try {
+    const businessId = req.user.business_id;
     const validationError = validateProduct(req.body);
 
     if (validationError) {
@@ -217,12 +225,14 @@ export async function addProduct(req, res) {
       });
     }
 
-    const product = await createProduct(normalizeProduct(req.body));
-    
-    // Record product creation.
+    const product = await createProduct(
+      normalizeProduct(req.body),
+      businessId
+    );
+
     try {
       await createActivityLog({
-        business_id: req.user.business_id,
+        business_id: businessId,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -233,8 +243,10 @@ export async function addProduct(req, res) {
         ip_address: req.ip,
       });
     } catch (logError) {
-      // Logging failure must not prevent product creation.
-      console.error("Product creation activity logging error:", logError.message);
+      console.error(
+        "Product creation activity logging error:",
+        logError.message
+      );
     }
 
     return res.status(201).json({
@@ -247,8 +259,10 @@ export async function addProduct(req, res) {
   }
 }
 
+// Update a product belonging to the logged-in business.
 export async function editProduct(req, res) {
   try {
+    const businessId = req.user.business_id;
     const id = Number(req.params.id);
 
     if (!Number.isInteger(id) || id <= 0) {
@@ -267,7 +281,7 @@ export async function editProduct(req, res) {
       });
     }
 
-    const existing = await getProductById(id);
+    const existing = await getProductById(id, businessId);
 
     if (!existing) {
       return res.status(404).json({
@@ -278,13 +292,13 @@ export async function editProduct(req, res) {
 
     const product = await updateProduct(
       id,
-      normalizeProduct(req.body)
+      normalizeProduct(req.body),
+      businessId
     );
 
-    // Record product update.
     try {
       await createActivityLog({
-        business_id: req.user.business_id,
+        business_id: businessId,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -295,8 +309,10 @@ export async function editProduct(req, res) {
         ip_address: req.ip,
       });
     } catch (logError) {
-      // Logging failure must not prevent product updates.
-      console.error("Product update activity logging error:", logError.message);
+      console.error(
+        "Product update activity logging error:",
+        logError.message
+      );
     }
 
     return res.status(200).json({
@@ -309,8 +325,10 @@ export async function editProduct(req, res) {
   }
 }
 
+// Change product status only within the logged-in business.
 export async function changeProductStatus(req, res) {
   try {
+    const businessId = req.user.business_id;
     const id = Number(req.params.id);
     const { is_active } = req.body;
 
@@ -328,7 +346,7 @@ export async function changeProductStatus(req, res) {
       });
     }
 
-    const existing = await getProductById(id);
+    const existing = await getProductById(id, businessId);
 
     if (!existing) {
       return res.status(404).json({
@@ -337,14 +355,17 @@ export async function changeProductStatus(req, res) {
       });
     }
 
-    const product = await updateProductStatus(id, is_active);
+    const product = await updateProductStatus(
+      id,
+      is_active,
+      businessId
+    );
 
-    // Record product status change.
     const newStatus = is_active ? "active" : "inactive";
 
     try {
       await createActivityLog({
-        business_id: req.user.business_id,
+        business_id: businessId,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -355,8 +376,10 @@ export async function changeProductStatus(req, res) {
         ip_address: req.ip,
       });
     } catch (logError) {
-      // Logging failure must not prevent the status change.
-      console.error("Product status activity logging error:", logError.message);
+      console.error(
+        "Product status activity logging error:",
+        logError.message
+      );
     }
 
     return res.status(200).json({
@@ -369,9 +392,12 @@ export async function changeProductStatus(req, res) {
   }
 }
 
+// List categories belonging to the logged-in business.
 export async function listCategories(req, res) {
   try {
-    const categories = await getAllCategories();
+    const categories = await getAllCategories(
+      req.user.business_id
+    );
 
     return res.status(200).json({
       success: true,
@@ -383,6 +409,7 @@ export async function listCategories(req, res) {
   }
 }
 
+// Create a category for the logged-in business.
 export async function createCategory(req, res) {
   const categoryName = req.body.category_name;
 
@@ -394,7 +421,10 @@ export async function createCategory(req, res) {
   }
 
   try {
-    const category = await insertCategory(categoryName.trim());
+    const category = await insertCategory(
+      categoryName.trim(),
+      req.user.business_id
+    );
 
     return res.status(201).json({
       success: true,
@@ -413,8 +443,10 @@ export async function createCategory(req, res) {
   }
 }
 
+// Soft-delete a product belonging to the logged-in business.
 export async function removeProduct(req, res) {
   try {
+    const businessId = req.user.business_id;
     const id = Number(req.params.id);
 
     if (!Number.isInteger(id) || id <= 0) {
@@ -424,7 +456,7 @@ export async function removeProduct(req, res) {
       });
     }
 
-    const existing = await getProductById(id);
+    const existing = await getProductById(id, businessId);
 
     if (!existing) {
       return res.status(404).json({
@@ -433,7 +465,7 @@ export async function removeProduct(req, res) {
       });
     }
 
-    const product = await deleteProduct(id);
+    const product = await deleteProduct(id, businessId);
 
     if (!product) {
       return res.status(404).json({
@@ -442,10 +474,9 @@ export async function removeProduct(req, res) {
       });
     }
 
-    // Record product deactivation through the delete operation.
     try {
       await createActivityLog({
-        business_id: req.user.business_id,
+        business_id: businessId,
         user_id: req.user.id,
         employee_name: req.user.full_name,
         username: req.user.username,
@@ -456,8 +487,10 @@ export async function removeProduct(req, res) {
         ip_address: req.ip,
       });
     } catch (logError) {
-      // Logging failure must not prevent product deactivation.
-      console.error("Product deactivation activity logging error:", logError.message);
+      console.error(
+        "Product deactivation activity logging error:",
+        logError.message
+      );
     }
 
     return res.status(200).json({
@@ -466,11 +499,6 @@ export async function removeProduct(req, res) {
       data: product,
     });
   } catch (error) {
-    console.error("Delete product error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "An unexpected server error occurred.",
-    });
+    return handleDatabaseError(error, res);
   }
 }

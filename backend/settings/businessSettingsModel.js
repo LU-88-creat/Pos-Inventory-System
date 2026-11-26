@@ -1,18 +1,19 @@
 
 import db from "../config/db.js";
 
-export async function getBusinessSettings() {
+export async function getBusinessSettings(businessId) {
   const [rows] = await db.execute(
     `SELECT *
      FROM business_settings
-     WHERE id = 1
-     LIMIT 1`
+     WHERE business_id = ?
+     LIMIT 1`,
+    [businessId]
   );
 
   return rows[0] || null;
 }
 
-export async function updateBusinessSettings(settings) {
+export async function updateBusinessSettings(settings, businessId) {
   const {
     business_name,
     phone,
@@ -36,7 +37,7 @@ export async function updateBusinessSettings(settings) {
          receipt_footer = ?,
          tax_enabled = ?,
          tax_rate = ?
-     WHERE id = 1`,
+     WHERE business_id = ?`,
     [
       business_name,
       phone || null,
@@ -47,8 +48,9 @@ export async function updateBusinessSettings(settings) {
       receipt_footer || null,
       tax_enabled ? 1 : 0,
       tax_rate,
+      businessId,
     ]
   );
 
-  return getBusinessSettings();
+  return getBusinessSettings(businessId);
 }

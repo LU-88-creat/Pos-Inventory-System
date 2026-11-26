@@ -42,7 +42,9 @@ app.use(
         return;
       }
 
-      callback(new Error("Origin not allowed by CORS"));
+      const corsError = new Error("This request is not allowed.");
+      corsError.status = 403;
+      callback(corsError);
     },
   })
 );
@@ -80,6 +82,32 @@ app.get("/api/health", async (req, res) => {
       message: "Database connection failed",
     });
   }
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "The requested resource could not be found.",
+  });
+});
+
+app.use((error, req, res, next) => {
+  console.error("Unhandled API error:", error);
+
+  const statusCode =
+    Number.isInteger(error?.status) &&
+    error.status >= 400 &&
+    error.status < 600
+      ? error.status
+      : 500;
+
+  res.status(statusCode).json({
+    success: false,
+    message:
+      statusCode >= 500
+        ? "Something went wrong. Please try again."
+        : "The request could not be completed.",
+  });
 });
 
 

@@ -1,6 +1,7 @@
 
 import db from "../config/db.js";
 
+// Create a sale for a specific business.
 export async function createSale(connection, saleData) {
   const {
     business_id,
@@ -50,7 +51,7 @@ export async function createSale(connection, saleData) {
   return result.insertId;
 }
 
-
+// Add a sale item for a specific business.
 export async function addSaleItem(connection, item) {
   const {
     business_id,
@@ -103,28 +104,26 @@ export async function addSaleItem(connection, item) {
   return result.insertId;
 }
 
-
-export async function getSaleById(id, businessId = null) {
-  const saleParams = businessId === null ? [id] : [id, businessId];
-  const saleWhere = businessId === null
-    ? "WHERE id = ? LIMIT 1"
-    : "WHERE id = ? AND business_id = ? LIMIT 1";
+// Get one sale and its items belonging to a specific business.
+export async function getSaleById(id, businessId) {
   const [sales] = await db.execute(
-    `SELECT * FROM sales ${saleWhere}`,
-    saleParams
+    `SELECT *
+     FROM sales
+     WHERE id = ? AND business_id = ?
+     LIMIT 1`,
+    [id, businessId]
   );
 
   if (sales.length === 0) {
     return null;
   }
 
-  const itemParams = businessId === null ? [id] : [id, businessId];
-  const itemWhere = businessId === null
-    ? "WHERE sale_id = ?"
-    : "WHERE sale_id = ? AND business_id = ?";
   const [items] = await db.execute(
-    `SELECT * FROM sale_items ${itemWhere} ORDER BY id ASC`,
-    itemParams
+    `SELECT *
+     FROM sale_items
+     WHERE sale_id = ? AND business_id = ?
+     ORDER BY id ASC`,
+    [id, businessId]
   );
 
   return {
@@ -133,8 +132,10 @@ export async function getSaleById(id, businessId = null) {
   };
 }
 
-export async function getAllSales() {
-  const [rows] = await db.execute(`
+// Get all sales belonging to a specific business.
+export async function getAllSales(businessId) {
+  const [rows] = await db.execute(
+    `
     SELECT
       s.id,
       s.receipt_number,
@@ -149,18 +150,26 @@ export async function getAllSales() {
       s.created_at,
       COUNT(si.id) AS item_count
     FROM sales s
-    LEFT JOIN sale_items si ON si.sale_id = s.id
+    LEFT JOIN sale_items si
+      ON si.sale_id = s.id
+      AND si.business_id = s.business_id
+    WHERE s.business_id = ?
     GROUP BY s.id
     ORDER BY s.created_at DESC, s.id DESC
-  `);
+    `,
+    [businessId]
+  );
 
   return rows;
 }
 
-export async function getProfitSummary() {
-  const [rows] = await db.execute(`
+// Calculate profit summary for a specific business.
+export async function getProfitSummary(businessId) {
+  const [rows] = await db.execute(
+    `
     SELECT
       COUNT(DISTINCT s.id) AS completed_sales_count,
+
       COUNT(
         DISTINCT CASE
           WHEN si.unit_cost_at_sale IS NULL THEN s.id
@@ -207,9 +216,15 @@ export async function getProfitSummary() {
       ) AS items_missing_historical_cost
 
     FROM sales s
-    INNER JOIN sale_items si ON si.sale_id = s.id
-    WHERE s.payment_status = 'completed'
-  `);
+    INNER JOIN sale_items si
+      ON si.sale_id = s.id
+      AND si.business_id = s.business_id
+
+    WHERE s.business_id = ?
+      AND s.payment_status = 'completed'
+    `,
+    [businessId]
+  );
 
   return rows[0];
 }

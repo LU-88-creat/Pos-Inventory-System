@@ -1,9 +1,15 @@
+
 import db from "../../config/db.js";
 
-export async function getAllProducts({ search = "", categoryId = "" } = {}) {
+// Retrieve products belonging to a specific business.
+export async function getAllProducts(
+  businessId,
+  { search = "", categoryId = "" } = {}
+) {
   let sql = `
     SELECT
       p.id,
+      p.business_id,
       p.product_name,
       p.sku,
       p.barcode,
@@ -20,11 +26,14 @@ export async function getAllProducts({ search = "", categoryId = "" } = {}) {
       p.created_at,
       p.updated_at
     FROM products p
-    INNER JOIN categories c ON c.id = p.category_id
-    WHERE p.is_active = TRUE
+    INNER JOIN categories c
+      ON c.id = p.category_id
+      AND c.business_id = p.business_id
+    WHERE p.business_id = ?
+      AND p.is_active = TRUE
   `;
 
-  const params = [];
+  const params = [businessId];
 
   if (search.trim()) {
     sql += `
@@ -50,19 +59,27 @@ export async function getAllProducts({ search = "", categoryId = "" } = {}) {
   return rows;
 }
 
-export async function getProductById(id) {
+// Retrieve one product belonging to a specific business.
+export async function getProductById(id, businessId) {
   const [rows] = await db.query(
-    `SELECT p.*, c.category_name
+    `SELECT
+       p.*,
+       c.category_name
      FROM products p
-     INNER JOIN categories c ON c.id = p.category_id
-     WHERE p.id = ?`,
-    [id]
+     INNER JOIN categories c
+       ON c.id = p.category_id
+       AND c.business_id = p.business_id
+     WHERE p.id = ?
+       AND p.business_id = ?
+     LIMIT 1`,
+    [id, businessId]
   );
 
   return rows[0] || null;
 }
 
-export async function createProduct(product) {
+// Create a product for a specific business.
+export async function createProduct(product, businessId) {
   const {
     product_name,
     sku,
@@ -77,13 +94,42 @@ export async function createProduct(product) {
     reorder_level,
   } = product;
 
+  // Confirm that the category belongs to this business.
+  const [categories] = await db.query(
+    `SELECT id
+     FROM categories
+     WHERE id = ?
+       AND business_id = ?
+       AND is_active = TRUE
+     LIMIT 1`,
+    [category_id, businessId]
+  );
+
+  if (categories.length === 0) {
+    const error = new Error(
+      "The selected category does not belong to this business."
+    );
+    error.code = "INVALID_BUSINESS_CATEGORY";
+    throw error;
+  }
+
   const [result] = await db.query(
     `INSERT INTO products (
-      product_name, sku, barcode, category_id,
-      unit_of_measure, cost_price, selling_price,
-      tax_rate, discount_rate, stock_quantity, reorder_level
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      business_id,
+      product_name,
+      sku,
+      barcode,
+      category_id,
+      unit_of_measure,
+      cost_price,
+      selling_price,
+      tax_rate,
+      discount_rate,
+      stock_quantity,
+      reorder_level
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
+      businessId,
       product_name,
       sku,
       barcode || null,
@@ -98,10 +144,11 @@ export async function createProduct(product) {
     ]
   );
 
-  return getProductById(result.insertId);
+  return getProductById(result.insertId, businessId);
 }
 
-export async function updateProduct(id, product) {
+// Update a product only within its owning business.
+export async function updateProduct(id, product, businessId) {
   const {
     product_name,
     sku,
@@ -115,6 +162,24 @@ export async function updateProduct(id, product) {
     stock_quantity,
     reorder_level,
   } = product;
+
+  const [categories] = await db.query(
+    `SELECT id
+     FROM categories
+     WHERE id = ?
+       AND business_id = ?
+       AND is_active = TRUE
+     LIMIT 1`,
+    [category_id, businessId]
+  );
+
+  if (categories.length === 0) {
+    const error = new Error(
+      "The selected category does not belong to this business."
+    );
+    error.code = "INVALID_BUSINESS_CATEGORY";
+    throw error;
+  }
 
   const [result] = await db.query(
     `UPDATE products SET
@@ -129,7 +194,8 @@ export async function updateProduct(id, product) {
       discount_rate = ?,
       stock_quantity = ?,
       reorder_level = ?
-     WHERE id = ?`,
+     WHERE id = ?
+       AND business_id = ?`,
     [
       product_name,
       sku,
@@ -143,39 +209,47 @@ export async function updateProduct(id, product) {
       stock_quantity,
       reorder_level,
       id,
+      businessId,
     ]
   );
 
   if (result.affectedRows === 0) {
-    const existing = await getProductById(id);
-    return existing;
+    return getProductById(id, businessId);
   }
 
-  return getProductById(id);
+  return getProductById(id, businessId);
 }
 
-export async function updateProductStatus(id, is_active) {
+// Change product status only within its owning business.
+export async function updateProductStatus(id, is_active, businessId) {
   const [result] = await db.query(
-    "UPDATE products SET is_active = ? WHERE id = ?",
-    [is_active, id]
+    `UPDATE products
+     SET is_active = ?
+     WHERE id = ?
+       AND business_id = ?`,
+    [is_active, id, businessId]
   );
 
   if (result.affectedRows === 0) {
-    return getProductById(id);
+    return getProductById(id, businessId);
   }
 
-  return getProductById(id);
+  return getProductById(id, businessId);
 }
 
-export async function deleteProduct(id) {
+// Soft-delete a product only within its owning business.
+export async function deleteProduct(id, businessId) {
   const [result] = await db.query(
-    "UPDATE products SET is_active = FALSE WHERE id = ?",
-    [id]
+    `UPDATE products
+     SET is_active = FALSE
+     WHERE id = ?
+       AND business_id = ?`,
+    [id, businessId]
   );
 
   if (result.affectedRows === 0) {
     return null;
   }
 
-  return getProductById(id);
+  return getProductById(id, businessId);
 }

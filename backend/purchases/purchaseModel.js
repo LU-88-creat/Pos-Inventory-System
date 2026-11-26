@@ -1,11 +1,14 @@
 
 import db from "../config/db.js";
 
-export async function getAllPurchases({
-  search = "",
-  status = "all",
-  supplier_id = "",
-} = {}) {
+export async function getAllPurchases(
+  businessId,
+  {
+    search = "",
+    status = "all",
+    supplier_id = "",
+  } = {}
+) {
   let sql = `
     SELECT
       p.id,
@@ -25,11 +28,13 @@ export async function getAllPurchases({
       p.created_at,
       p.updated_at
     FROM purchases p
-    INNER JOIN suppliers s ON s.id = p.supplier_id
-    WHERE 1 = 1
+    INNER JOIN suppliers s
+      ON s.id = p.supplier_id
+      AND s.business_id = p.business_id
+    WHERE p.business_id = ?
   `;
 
-  const params = [];
+  const params = [businessId];
 
   if (search.trim()) {
     const term = `%${search.trim()}%`;
@@ -56,7 +61,7 @@ export async function getAllPurchases({
   return rows;
 }
 
-export async function getPurchaseById(id) {
+export async function getPurchaseById(id, businessId) {
   const [purchases] = await db.execute(
     `SELECT
        p.*,
@@ -64,10 +69,13 @@ export async function getPurchaseById(id) {
        s.contact_person,
        s.phone AS supplier_phone
      FROM purchases p
-     INNER JOIN suppliers s ON s.id = p.supplier_id
+     INNER JOIN suppliers s
+       ON s.id = p.supplier_id
+       AND s.business_id = p.business_id
      WHERE p.id = ?
+       AND p.business_id = ?
      LIMIT 1`,
-    [id]
+    [id, businessId]
   );
 
   if (purchases.length === 0) {
@@ -89,10 +97,13 @@ export async function getPurchaseById(id) {
        pi.unit_cost,
        pi.line_total
      FROM purchase_items pi
-     INNER JOIN products pr ON pr.id = pi.product_id
+     INNER JOIN products pr
+       ON pr.id = pi.product_id
+       AND pr.business_id = pi.business_id
      WHERE pi.purchase_id = ?
+       AND pi.business_id = ?
      ORDER BY pi.id ASC`,
-    [id]
+    [id, businessId]
   );
 
   return {
@@ -102,6 +113,7 @@ export async function getPurchaseById(id) {
 }
 
 export async function createDraftPurchase({
+  businessId,
   purchase_number,
   supplier_id,
   purchase_date,
@@ -117,9 +129,11 @@ export async function createDraftPurchase({
     const [suppliers] = await connection.execute(
       `SELECT id
        FROM suppliers
-       WHERE id = ? AND is_active = 1
+       WHERE id = ?
+         AND business_id = ?
+         AND is_active = 1
        FOR UPDATE`,
-      [supplier_id]
+      [supplier_id, businessId]
     );
 
     if (suppliers.length === 0) {
@@ -129,7 +143,6 @@ export async function createDraftPurchase({
     }
 
     let subtotal = 0;
-
     const preparedItems = [];
 
     for (const item of items) {
@@ -155,9 +168,11 @@ export async function createDraftPurchase({
       const [products] = await connection.execute(
         `SELECT id, product_name
          FROM products
-         WHERE id = ? AND is_active = 1
+         WHERE id = ?
+           AND business_id = ?
+           AND is_active = 1
          FOR UPDATE`,
-        [productId]
+        [productId, businessId]
       );
 
       if (products.length === 0) {
@@ -188,8 +203,9 @@ export async function createDraftPurchase({
         status,
         subtotal,
         total_amount,
-        notes
-      ) VALUES (?, ?, ?, ?, 'draft', ?, ?, ?)`,
+        notes,
+        business_id
+      ) VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
       [
         purchase_number,
         supplier_id,
@@ -198,6 +214,7 @@ export async function createDraftPurchase({
         subtotal,
         subtotal,
         notes,
+        businessId,
       ]
     );
 
@@ -211,21 +228,23 @@ export async function createDraftPurchase({
           quantity,
           received_quantity,
           unit_cost,
-          line_total
-        ) VALUES (?, ?, ?, 0, ?, ?)`,
+          line_total,
+          business_id
+        ) VALUES (?, ?, ?, 0, ?, ?, ?)`,
         [
           purchaseId,
           item.product_id,
           item.quantity,
           item.unit_cost,
           item.line_total,
+          businessId,
         ]
       );
     }
 
     await connection.commit();
 
-    return await getPurchaseById(purchaseId);
+    return await getPurchaseById(purchaseId, businessId);
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -234,8 +253,7 @@ export async function createDraftPurchase({
   }
 }
 
-
-export async function orderPurchase(id) {
+export async function orderPurchase(id, businessId) {
   const connection = await db.getConnection();
 
   try {
@@ -245,8 +263,9 @@ export async function orderPurchase(id) {
       `SELECT id, status
        FROM purchases
        WHERE id = ?
+         AND business_id = ?
        FOR UPDATE`,
-      [id]
+      [id, businessId]
     );
 
     if (purchases.length === 0) {
@@ -267,8 +286,9 @@ export async function orderPurchase(id) {
       `SELECT id
        FROM purchase_items
        WHERE purchase_id = ?
+         AND business_id = ?
        LIMIT 1`,
-      [id]
+      [id, businessId]
     );
 
     if (items.length === 0) {
@@ -282,13 +302,14 @@ export async function orderPurchase(id) {
     await connection.execute(
       `UPDATE purchases
        SET status = 'ordered'
-       WHERE id = ?`,
-      [id]
+       WHERE id = ?
+         AND business_id = ?`,
+      [id, businessId]
     );
 
     await connection.commit();
 
-    return await getPurchaseById(id);
+    return await getPurchaseById(id, businessId);
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -306,7 +327,8 @@ export async function receivePurchase(id, receivedItems, businessId) {
     const [purchases] = await connection.execute(
       `SELECT id, business_id, status
        FROM purchases
-       WHERE id = ? AND business_id = ?
+       WHERE id = ?
+         AND business_id = ?
        FOR UPDATE`,
       [id, businessId]
     );
@@ -339,8 +361,9 @@ export async function receivePurchase(id, receivedItems, businessId) {
       `SELECT id, product_id, quantity, received_quantity
        FROM purchase_items
        WHERE purchase_id = ?
+         AND business_id = ?
        FOR UPDATE`,
-      [id]
+      [id, businessId]
     );
 
     const requested = new Map();
@@ -400,7 +423,9 @@ export async function receivePurchase(id, receivedItems, businessId) {
       const [products] = await connection.execute(
         `SELECT id, stock_quantity
          FROM products
-         WHERE id = ? AND business_id = ? AND is_active = 1
+         WHERE id = ?
+           AND business_id = ?
+           AND is_active = 1
          FOR UPDATE`,
         [item.product_id, businessId]
       );
@@ -421,15 +446,18 @@ export async function receivePurchase(id, receivedItems, businessId) {
       await connection.execute(
         `UPDATE products
          SET stock_quantity = ?
-         WHERE id = ?`,
-        [newStock, item.product_id]
+         WHERE id = ?
+           AND business_id = ?`,
+        [newStock, item.product_id, businessId]
       );
 
       await connection.execute(
         `UPDATE purchase_items
          SET received_quantity = received_quantity + ?
-         WHERE id = ? AND business_id = ?`,
-        [receiveQuantity, itemId, businessId]
+         WHERE id = ?
+           AND purchase_id = ?
+           AND business_id = ?`,
+        [receiveQuantity, itemId, id, businessId]
       );
 
       await connection.execute(
@@ -454,14 +482,14 @@ export async function receivePurchase(id, receivedItems, businessId) {
           `Goods received for purchase ID ${id}`,
         ]
       );
-
     }
 
     const [updatedItems] = await connection.execute(
       `SELECT quantity, received_quantity
        FROM purchase_items
-       WHERE purchase_id = ?`,
-      [id]
+       WHERE purchase_id = ?
+         AND business_id = ?`,
+      [id, businessId]
     );
 
     const allReceived = updatedItems.every(
@@ -469,18 +497,21 @@ export async function receivePurchase(id, receivedItems, businessId) {
         Number(item.received_quantity) >= Number(item.quantity)
     );
 
-    const newStatus = allReceived ? "received" : "partially_received";
+    const newStatus = allReceived
+      ? "received"
+      : "partially_received";
 
     await connection.execute(
       `UPDATE purchases
        SET status = ?
-       WHERE id = ?`,
-      [newStatus, id]
+       WHERE id = ?
+         AND business_id = ?`,
+      [newStatus, id, businessId]
     );
 
     await connection.commit();
 
-    return await getPurchaseById(id);
+    return await getPurchaseById(id, businessId);
   } catch (error) {
     await connection.rollback();
     throw error;

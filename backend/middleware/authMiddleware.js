@@ -68,21 +68,22 @@ function createAuthenticateToken(requireActiveSubscription = true) {
             "This business account is inactive. Please contact Lux support.",
         });
       }
+      let subscription = null;
 
       // Check subscription access only when required.
-      if (requireActiveSubscription) {
-        const subscription = await getBusinessSubscription(
-          decoded.business_id
-        );
+if (requireActiveSubscription) {
+  subscription = await getBusinessSubscription(
+    decoded.business_id
+  );
 
-        if (!subscription || !subscription.has_access) {
-          return res.status(403).json({
-            success: false,
-            message:
-              "Your Lux subscription is inactive or has expired. Please renew your subscription or contact Lux support.",
-          });
-        }
-      }
+  if (!subscription || !subscription.has_access) {
+    return res.status(403).json({
+      success: false,
+      message:
+        "Your Lux subscription is inactive or has expired. Please renew your subscription or contact Lux support.",
+    });
+  }
+}
 
       // Confirm that the employee account exists and is active.
       const user = await getUserById(
@@ -99,13 +100,21 @@ function createAuthenticateToken(requireActiveSubscription = true) {
       }
 
       req.user = {
-        id: user.id,
-        business_id: user.business_id,
-        full_name: user.full_name,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      };
+  id: user.id,
+  business_id: user.business_id,
+  full_name: user.full_name,
+  username: user.username,
+  email: user.email,
+  role: user.role,
+  subscription: subscription
+    ? {
+        plan_id: subscription.plan_id,
+        plan_code: subscription.plan_code,
+        plan_name: subscription.plan_name,
+        enabled_features: subscription.enabled_features || [],
+      }
+    : null,
+};
 
       next();
     } catch (error) {
@@ -165,6 +174,32 @@ export function authorizeRoles(...allowedRoles) {
         success: false,
         message:
           "Access denied. You do not have permission to perform this action.",
+      });
+    }
+
+    next();
+  };
+}
+
+
+// Restrict access to features included in the business subscription.
+export function authorizeFeature(featureCode) {
+  return (req, res, next) => {
+    if (!req.user || !req.user.subscription) {
+      return res.status(403).json({
+        success: false,
+        message: "An active subscription is required to access this feature.",
+      });
+    }
+
+    const enabledFeatures =
+      req.user.subscription.enabled_features || [];
+
+    if (!enabledFeatures.includes(featureCode)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "This feature is not included in your current Lux subscription. Please upgrade your plan to access it.",
       });
     }
 

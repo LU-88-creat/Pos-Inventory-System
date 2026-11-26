@@ -94,6 +94,7 @@ export async function addPurchasePayment(req, res) {
 
     const payment = await recordPurchasePayment({
       purchase_id: purchaseId,
+      business_id: req.user.business_id,
       amount: Number(amount),
       payment_method,
       reference_number: reference_number?.trim() || null,
@@ -126,6 +127,13 @@ export async function addPurchasePayment(req, res) {
       data: payment,
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase not found.",
+      });
+    }
+
     const clientErrors = [
       "Purchase not found.",
       "Payments can only be recorded for ordered or received purchases.",
@@ -139,7 +147,7 @@ export async function addPurchasePayment(req, res) {
     ) {
       return res.status(400).json({
         success: false,
-        message: error.message,
+        message: "Please check the supplier payment details and try again.",
       });
     }
 
@@ -163,7 +171,10 @@ export async function listPurchasePayments(req, res) {
       });
     }
 
-    const payments = await getPurchasePayments(purchaseId);
+    const payments = await getPurchasePayments(
+      purchaseId, 
+      req.user.business_id
+    );
 
     return res.status(200).json({
       success: true,
@@ -181,7 +192,7 @@ export async function listPurchasePayments(req, res) {
 
 export async function listAllPurchasePayments(req, res) {
   try {
-    const payments = await getAllPurchasePayments();
+    const payments = await getAllPurchasePayments(req.user.business_id);
 
     return res.status(200).json({
       success: true,

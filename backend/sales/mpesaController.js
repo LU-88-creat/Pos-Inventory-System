@@ -140,7 +140,11 @@ export async function startStkPush(req, res) {
   try {
     phoneNumber = normalizeKenyanPhoneNumber(req.body?.phone_number);
   } catch (error) {
-    return res.status(400).json({ success: false, message: error.message });
+    console.error("Invalid M-Pesa phone number:", error.message);
+    return res.status(400).json({
+      success: false,
+      message: "Enter a valid Kenyan M-Pesa phone number.",
+    });
   }
 
   try {
@@ -307,13 +311,18 @@ export async function startStkPush(req, res) {
     if (error.statusCode) {
       return res.status(error.statusCode).json({
         success: false,
-        message: error.message,
+        message:
+          error.statusCode === 404
+            ? "This sale could not be found."
+            : error.statusCode === 409
+              ? "This payment can no longer be started."
+              : "Please check the sale and payment details, then try again.",
       });
     }
 
     return res.status(502).json({
       success: false,
-      message: error.message || "Could not start the M-Pesa payment request.",
+      message: "Could not start the M-Pesa payment request. Please try again.",
     });
   }
 }

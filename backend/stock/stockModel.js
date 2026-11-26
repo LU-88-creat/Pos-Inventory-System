@@ -1,30 +1,38 @@
 
 import db from "../config/db.js";
 
-// Lock and retrieve an active product before changing its stock.
-export async function getProductForUpdate(connection, productId) {
+// Lock and retrieve an active product belonging to this business.
+export async function getProductForUpdate(
+  connection,
+  productId,
+  businessId
+) {
   const [rows] = await connection.execute(
     `SELECT id, product_name, sku, stock_quantity, reorder_level
      FROM products
-     WHERE id = ? AND is_active = TRUE
+     WHERE id = ?
+       AND business_id = ?
+       AND is_active = TRUE
      FOR UPDATE`,
-    [productId]
+    [productId, businessId]
   );
 
   return rows.length ? rows[0] : null;
 }
 
-// Update the current stock quantity.
+// Update stock only when the product belongs to this business.
 export async function updateProductStock(
   connection,
   productId,
-  newStock
+  newStock,
+  businessId
 ) {
   const [result] = await connection.execute(
     `UPDATE products
      SET stock_quantity = ?
-     WHERE id = ?`,
-    [newStock, productId]
+     WHERE id = ?
+       AND business_id = ?`,
+    [newStock, productId, businessId]
   );
 
   if (result.affectedRows !== 1) {
@@ -33,6 +41,7 @@ export async function updateProductStock(
 }
 
 // Record a stock movement using the same transaction connection.
+// Confirm that the product belongs to the supplied business.
 export async function createStockMovement(connection, movement) {
   const {
     business_id,
@@ -45,6 +54,19 @@ export async function createStockMovement(connection, movement) {
     reference_id = null,
     notes = null,
   } = movement;
+
+  const [products] = await connection.execute(
+    `SELECT id
+     FROM products
+     WHERE id = ?
+       AND business_id = ?
+     FOR UPDATE`,
+    [product_id, business_id]
+  );
+
+  if (!products.length) {
+    throw new Error("Product does not belong to this business.");
+  }
 
   const [result] = await connection.execute(
     `INSERT INTO stock_movements (
@@ -75,20 +97,26 @@ export async function createStockMovement(connection, movement) {
   return result.insertId;
 }
 
-// Retrieve recent stock movements, optionally for one product.
+// Retrieve recent stock movements for one business,
+// optionally filtered by product.
 export async function getStockMovements({
+  businessId,
   productId = null,
   limit = 100,
 } = {}) {
+  if (!Number.isSafeInteger(businessId) || businessId < 1) {
+    throw new TypeError("A valid business ID is required.");
+  }
+
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) {
     throw new RangeError("Stock movement limit must be between 1 and 500.");
   }
 
-  const params = [];
-  let whereClause = "";
+  const params = [businessId];
+  let whereClause = "WHERE sm.business_id = ?";
 
   if (productId !== null) {
-    whereClause = "WHERE sm.product_id = ?";
+    whereClause += " AND sm.product_id = ?";
     params.push(productId);
   }
 
@@ -107,7 +135,9 @@ export async function getStockMovements({
        sm.notes,
        sm.created_at
      FROM stock_movements sm
-     INNER JOIN products p ON p.id = sm.product_id
+     INNER JOIN products p
+       ON p.id = sm.product_id
+       AND p.business_id = sm.business_id
      ${whereClause}
      ORDER BY sm.created_at DESC, sm.id DESC
      LIMIT ${limit}`,

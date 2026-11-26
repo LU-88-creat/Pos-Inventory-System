@@ -11,8 +11,9 @@ import {
 export async function listCustomers(req, res) {
   try {
     const search = String(req.query.search || "").trim();
+    const businessId = req.user.business_id;
 
-    const customers = await getAllCustomers({ search });
+    const customers = await getAllCustomers(businessId, { search });
 
     return res.status(200).json({
       success: true,
@@ -33,6 +34,7 @@ export async function listCustomers(req, res) {
 export async function getCustomer(req, res) {
   try {
     const id = Number(req.params.id);
+    const businessId = req.user.business_id;
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
@@ -41,7 +43,7 @@ export async function getCustomer(req, res) {
       });
     }
 
-    const customer = await getCustomerById(id);
+    const customer = await getCustomerById(id, businessId);
 
     if (!customer) {
       return res.status(404).json({
@@ -73,6 +75,8 @@ export async function addCustomer(req, res) {
       email,
       address,
     } = req.body;
+
+    const businessId = req.user.business_id;
 
     if (
       typeof customer_name !== "string" ||
@@ -135,7 +139,7 @@ export async function addCustomer(req, res) {
       phone: normalizedPhone,
       email: normalizedEmail,
       address: normalizedAddress,
-    });
+    }, businessId);
 
     return res.status(201).json({
       success: true,
@@ -156,6 +160,7 @@ export async function addCustomer(req, res) {
 export async function editCustomer(req, res) {
   try {
     const id = Number(req.params.id);
+    const businessId = req.user.business_id;
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
@@ -232,7 +237,7 @@ export async function editCustomer(req, res) {
       phone: normalizedPhone,
       email: normalizedEmail,
       address: normalizedAddress,
-    });
+    }, businessId);
 
     if (!customer) {
       return res.status(404).json({
@@ -260,6 +265,7 @@ export async function editCustomer(req, res) {
 export async function changeCustomerStatus(req, res) {
   try {
     const id = Number(req.params.id);
+    const businessId = req.user.business_id;
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
@@ -268,7 +274,7 @@ export async function changeCustomerStatus(req, res) {
       });
     }
 
-    const deactivated = await deactivateCustomer(id);
+    const deactivated = await deactivateCustomer(id, businessId);
 
     if (!deactivated) {
       return res.status(404).json({

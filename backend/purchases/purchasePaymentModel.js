@@ -3,6 +3,7 @@ import db from "../config/db.js";
 
 export async function recordPurchasePayment({
   purchase_id,
+  business_id,
   amount,
   payment_method,
   reference_number = null,
@@ -14,17 +15,19 @@ export async function recordPurchasePayment({
   try {
     await connection.beginTransaction();
 
-    // Lock the purchase so concurrent payments cannot overpay it.
+    // Lock only a purchase belonging to this business.
     const [purchases] = await connection.execute(
       `SELECT id, total_amount, amount_paid, payment_status, status
        FROM purchases
-       WHERE id = ?
+       WHERE id = ? AND business_id = ?
        FOR UPDATE`,
-      [purchase_id]
+      [purchase_id, business_id]
     );
 
     if (purchases.length === 0) {
-      throw new Error("Purchase not found.");
+      const error = new Error("Purchase not found.");
+      error.statusCode = 404;
+      throw error;
     }
 
     const purchase = purchases[0];
@@ -65,14 +68,16 @@ export async function recordPurchasePayment({
     const [paymentResult] = await connection.execute(
       `INSERT INTO purchase_payments (
         purchase_id,
+        business_id,
         amount,
         payment_method,
         reference_number,
         payment_date,
         notes
-      ) VALUES (?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)`,
+      ) VALUES (?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)`,
       [
         purchase_id,
+        business_id,
         paymentAmount,
         payment_method,
         reference_number,
@@ -91,8 +96,13 @@ export async function recordPurchasePayment({
     await connection.execute(
       `UPDATE purchases
        SET amount_paid = ?, payment_status = ?
-       WHERE id = ?`,
-      [newAmountPaid, newPaymentStatus, purchase_id]
+       WHERE id = ? AND business_id = ?`,
+      [
+        newAmountPaid,
+        newPaymentStatus,
+        purchase_id,
+        business_id,
+      ]
     );
 
     await connection.commit();
@@ -113,7 +123,7 @@ export async function recordPurchasePayment({
   }
 }
 
-export async function getPurchasePayments(purchaseId) {
+export async function getPurchasePayments(purchaseId, businessId) {
   const [rows] = await db.execute(
     `SELECT
        id,
@@ -126,14 +136,15 @@ export async function getPurchasePayments(purchaseId) {
        created_at
      FROM purchase_payments
      WHERE purchase_id = ?
+       AND business_id = ?
      ORDER BY payment_date DESC, id DESC`,
-    [purchaseId]
+    [purchaseId, businessId]
   );
 
   return rows;
 }
 
-export async function getAllPurchasePayments() {
+export async function getAllPurchasePayments(businessId) {
   const [rows] = await db.execute(
     `SELECT
        pp.id AS payment_id,
@@ -149,9 +160,13 @@ export async function getAllPurchasePayments() {
      FROM purchase_payments pp
      INNER JOIN purchases p
        ON p.id = pp.purchase_id
+       AND p.business_id = pp.business_id
      LEFT JOIN suppliers s
        ON s.id = p.supplier_id
-     ORDER BY pp.payment_date DESC, pp.id DESC`
+       AND s.business_id = p.business_id
+     WHERE pp.business_id = ?
+     ORDER BY pp.payment_date DESC, pp.id DESC`,
+    [businessId]
   );
 
   return rows;

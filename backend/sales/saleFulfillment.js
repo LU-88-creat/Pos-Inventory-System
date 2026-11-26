@@ -83,10 +83,16 @@ export async function fulfillSale(connection, saleId, sale) {
     });
   }
 
-  await connection.execute(
+  const [completionResult] = await connection.execute(
     `UPDATE sales
      SET payment_status = 'completed'
      WHERE id = ? AND business_id = ? AND payment_status = 'pending'`,
     [saleId, sale.business_id]
   );
+
+  if (completionResult.affectedRows !== 1) {
+    throw new Error(
+      "Sale completion failed. The sale was not updated."
+    );
+  }
 }

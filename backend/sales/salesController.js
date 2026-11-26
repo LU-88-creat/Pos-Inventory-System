@@ -15,7 +15,7 @@ import { createActivityLog } from "../activityLogs/activityLogModel.js";
 
 export async function listSales(req, res) {
   try {
-    const sales = await getAllSales();
+    const sales = await getAllSales(req.user.business_id);
 
     return res.status(200).json({
       success: true,
@@ -271,8 +271,8 @@ export async function addSale(req, res) {
     return res.status(isValidationError ? 400 : 500).json({
       success: false,
       message: isValidationError
-        ? error.message
-        : "Failed to record sale.",
+        ? "Please check the sale details and try again."
+        : "Unable to record the sale. Please try again.",
     });
   } finally {
     connection.release();
@@ -366,7 +366,10 @@ export async function completeSale(req, res) {
     if (error.statusCode) {
       return res.status(error.statusCode).json({
         success: false,
-        message: error.message,
+        message:
+          error.statusCode === 404
+            ? "Sale not found."
+            : "This sale cannot be completed. Please review its payment status.",
       });
     }
 
@@ -497,7 +500,7 @@ export async function cancelSale(req, res) {
 
 export async function profitSummary(req, res) {
   try {
-    const summary = await getProfitSummary();
+    const summary = await getProfitSummary(req.user.business_id);
 
     return res.status(200).json({
       success: true,
